@@ -150,7 +150,7 @@ CREATE TABLE Rooms (
 -- course-employee relationships need to use trigger 
 CREATE TABLE Specializes (
 	eid INTEGER REFERENCES Instructors,
-  	area TEXT REFERENCES Course_areas
+  	area TEXT REFERENCES Course_areas,
   	PRIMARY KEY (eid, area)
 );
 
