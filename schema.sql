@@ -61,8 +61,8 @@ CREATE TABLE Cancels (
 CREATE TABLE Course_packages (
 	package_id INTEGER PRIMARY KEY,
   	num_free_registrations INTEGER NOT NULL,
+	sale_start_date DATE NOT NULL,
   	sale_end_date DATE NOT NULL,
-    sale_start_date DATE NOT NULL,
   	name TEXT NOT NULL,
     price NUMERIC NOT NULL
 ); 
