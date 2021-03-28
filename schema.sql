@@ -1,3 +1,27 @@
+DROP TABLE IF EXISTS Customers CASCADE;
+DROP TABLE IF EXISTS Credit_cards CASCADE;
+DROP TABLE IF EXISTS Owns CASCADE;
+DROP TABLE IF EXISTS Cancels CASCADE;
+DROP TABLE IF EXISTS Course_packages CASCADE;
+DROP TABLE IF EXISTS Buys CASCADE;
+DROP TABLE IF EXISTS Redeems CASCADE;
+DROP TABLE IF EXISTS Registers CASCADE;
+DROP TABLE IF EXISTS Course_areas CASCADE;
+DROP TABLE IF EXISTS Courses CASCADE;
+DROP TABLE IF EXISTS Offerings CASCADE;
+DROP TABLE IF EXISTS Sessions CASCADE;
+DROP TABLE IF EXISTS Rooms CASCADE;
+DROP TABLE IF EXISTS Specializes CASCADE;
+DROP TABLE IF EXISTS Employees CASCADE;
+DROP TABLE IF EXISTS Part_time_Emp CASCADE;
+DROP TABLE IF EXISTS Full_time_Emp CASCADE;
+DROP TABLE IF EXISTS Instructors CASCADE;
+DROP TABLE IF EXISTS Part_time_instructors CASCADE;
+DROP TABLE IF EXISTS Full_time_instructors CASCADE;
+DROP TABLE IF EXISTS Administrators CASCADE;
+DROP TABLE IF EXISTS Managers CASCADE;
+DROP TABLE IF EXISTS Pay_slips CASCADE;
+
 CREATE TABLE Customers (
   	cust_id INTEGER PRIMARY KEY,
   	name TEXT,
@@ -86,7 +110,7 @@ CREATE TABLE Courses (
 	title TEXT NOT NULL,
 	description TEXT,
   	course_area TEXT REFERENCES Course_areas NOT NULL,
-  	duration INTEGER NOT NULL
+  	duration INTEGER NOT NULL /* to clarify */
 );
 
 -- include Handles relationship by eid
@@ -111,7 +135,6 @@ CREATE TABLE Sessions (
   	date DATE NOT NULL, /* weekday */
   	start_time INTEGER NOT NULL, /* check constraints */
   	end_time INTEGER NOT NULL, /* check constraints */
-	/* need to clarify: each session duration is one hour? */
   	eid INTEGER REFERENCES Instructors,
   	rid INTEGER REFERENCES Rooms,
   	PRIMARY KEY (course_id, launch_date, sid),
