@@ -22,6 +22,123 @@ DROP TABLE IF EXISTS Administrators CASCADE;
 DROP TABLE IF EXISTS Managers CASCADE;
 DROP TABLE IF EXISTS Pay_slips CASCADE;
 
+CREATE TABLE Employees (
+  	eid INTEGER PRIMARY KEY,
+  	name TEXT NOT NULL,
+  	email TEXT NOT NULL,
+  	phone TEXT NOT NULL,
+  	address TEXT,
+  	join_date DATE NOT NULL,
+	depart_date DATE,
+	CHECK (join_date <= depart_date)
+);
+
+-- Trigger to enforce Either Or
+CREATE TABLE Full_time_Emp (
+	eid INTEGER PRIMARY KEY REFERENCES Employees ON DELETE CASCADE,
+  	monthly_salary NUMERIC(10,2) NOT NULL CHECK (monthly_salary >= 0)
+);
+
+CREATE TABLE Part_time_Emp (
+	eid INTEGER PRIMARY KEY REFERENCES Employees ON DELETE CASCADE,
+  	hourly_rate NUMERIC(6,2) NOT NULL CHECK (hourly_rate >= 0)
+);
+
+CREATE TABLE Instructors (
+  	eid INTEGER PRIMARY KEY REFERENCES Employees ON DELETE CASCADE
+);
+
+CREATE TABLE Full_time_instructors (
+  	eid INTEGER PRIMARY KEY REFERENCES Full_time_Emp REFERENCES Instructors ON DELETE CASCADE
+);
+
+CREATE TABLE Part_time_instructors (
+  	eid INTEGER PRIMARY KEY REFERENCES Part_time_Emp REFERENCES Instructors ON DELETE CASCADE	
+);
+
+CREATE TABLE Administrators (
+  	eid INTEGER PRIMARY KEY REFERENCES Full_time_Emp ON DELETE CASCADE
+);
+
+CREATE TABLE Managers (
+  	eid INTEGER PRIMARY KEY REFERENCES Full_time_Emp ON DELETE CASCADE
+);
+
+CREATE TABLE Pay_slips (
+	eid INTEGER REFERENCES Employees ON DELETE CASCADE,
+  	payment_date DATE,
+  	amount NUMERIC(10,2) NOT NULL CHECK (amount >= 0),
+  	num_work_hours INTEGER CHECK (num_work_hours >= 0),
+  	num_work_days INTEGER CHECK (num_work_days >= 0),
+  	PRIMARY KEY (eid, payment_date)
+);
+
+CREATE TABLE Rooms (
+	rid INTEGER PRIMARY KEY,
+  	location TEXT NOT NULL,
+  	seating_capacity INTEGER NOT NULL CHECK (seating_capacity >= 0)
+);
+
+-- include Manages relationship by eid
+CREATE TABLE Course_areas (
+  	name TEXT PRIMARY KEY,
+  	eid INTEGER REFERENCES Managers NOT NULL
+);
+
+-- include In relationship by course_area_name
+CREATE TABLE Courses (
+	course_id INTEGER PRIMARY KEY,
+	title TEXT NOT NULL,
+	description TEXT,
+  	course_area TEXT REFERENCES Course_areas NOT NULL,
+  	duration NUMERIC(3,1) NOT NULL CHECK (duration >= 0)
+);
+
+-- include Handles relationship by eid
+CREATE TABLE Offerings (
+	course_id INTEGER REFERENCES Courses ON DELETE CASCADE,
+  	launch_date DATE,
+  	start_date DATE NOT NULL,
+  	end_date DATE NOT NULL,
+  	registration_deadline DATE NOT NULL,
+  	target_number_registrations INTEGER NOT NULL CHECK (target_number_registrations >= 0),
+    seating_capacity INTEGER NOT NULL CHECK (seating_capacity >= 0),
+  	fees NUMERIC(10,2) NOT NULL CHECK (fees >= 0),
+  	eid INTEGER REFERENCES Administrators NOT NULL,
+  	PRIMARY KEY (course_id, launch_date),
+	CHECK (launch_date <= registration_deadline),
+	CHECK (start_date <= end_date),
+	CHECK (registration_deadline <= start_date - INTERVAL '10 days'),
+	CHECK (seating_capacity >= target_number_registrations)
+);
+
+
+-- include Conducts relationship by eid & rid
+CREATE TABLE Sessions (
+	course_id INTEGER,
+  	launch_date DATE,
+  	sid INTEGER,
+  	date DATE NOT NULL, 
+  	start_time NUMERIC(3,1) NOT NULL, 
+  	end_time NUMERIC(3,1) NOT NULL, 
+  	eid INTEGER REFERENCES Instructors,
+  	rid INTEGER REFERENCES Rooms,
+  	PRIMARY KEY (course_id, launch_date, sid),
+  	FOREIGN KEY (course_id, launch_date) REFERENCES Offerings ON DELETE CASCADE,
+	CHECK ((EXTRACT(DOW FROM date)) IN (1,2,3,4,5)),
+	CHECK ((start_time >= 9 and start_time < 12) or (start_time >= 14 and start_time < 18)),
+	CHECK ((end_time > 9 and end_time <= 12) or (end_time > 14 and end_time <= 18)),
+	CHECK (start_time < end_time),
+	CHECK (launch_date <= date - INTERVAL '10 days')
+);
+
+-- course-employee relationships need to use trigger 
+CREATE TABLE Specializes (
+	eid INTEGER REFERENCES Instructors,
+  	area TEXT REFERENCES Course_areas,
+  	PRIMARY KEY (eid, area)
+);
+
 CREATE TABLE Customers (
   	cust_id INTEGER PRIMARY KEY,
   	name TEXT,
@@ -45,33 +162,21 @@ CREATE TABLE Owns (
   	--TPC for Credit_card trigger: when inserting credit card, check customers >= 1
 );
 
-CREATE TABLE Cancels (
-  	cust_id INTEGER REFERENCES Customers,
-  	course_id INTEGER,
-  	launch_date DATE,
-  	sid INTEGER,  	
-  	date DATE,
-  	refund_amt NUMERIC,
-  	package_credit INTEGER CHECK (package_credit IN (0, 1)),
-  	PRIMARY KEY (cust_id, course_id, launch_date, sid, date),
-  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions
-);
-
-
 CREATE TABLE Course_packages (
 	package_id INTEGER PRIMARY KEY,
-  	num_free_registrations INTEGER NOT NULL,
+  	num_free_registrations INTEGER NOT NULL CHECK (num_free_registrations >= 0),
 	sale_start_date DATE NOT NULL,
   	sale_end_date DATE NOT NULL,
   	name TEXT NOT NULL,
-    price NUMERIC NOT NULL
+    price NUMERIC(10,2) NOT NULL CHECK (price >= 0),
+	CHECK (sale_start_date <= sale_end_date)
 ); 
 
 CREATE TABLE Buys (
-  	package_id INTEGER REFERENCES Course_packages,    	
+  	package_id INTEGER REFERENCES Course_packages, 
     card_number TEXT REFERENCES Owns,
   	date DATE,
-  	num_remaining_redemptions INTEGER NOT NULL,  	
+  	num_remaining_redemptions INTEGER NOT NULL CHECK (num_remaining_redemptions >= 0),
     PRIMARY KEY (package_id, card_number, date)
 );
 
@@ -85,7 +190,9 @@ CREATE TABLE Redeems(
 	date DATE,  	
     PRIMARY KEY (package_id, card_number, buy_date, course_id, launch_date, sid, date),
     FOREIGN KEY (package_id, card_number, buy_date) REFERENCES Buys,
-  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions
+  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions,
+	CHECK (buy_date <= date),
+	CHECK (launch_date <= date)
 );
 
 CREATE TABLE Registers(
@@ -95,111 +202,19 @@ CREATE TABLE Registers(
     sid INTEGER,
     date DATE,
     PRIMARY KEY (card_number, course_id, launch_date, sid, date),
-  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions 	
+  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions,
+	CHECK (launch_date <= date)
 );
 
--- include Manages relationship by eid
-CREATE TABLE Course_areas (
-  	name TEXT PRIMARY KEY,
-  	eid INTEGER REFERENCES Managers NOT NULL
-);
-
--- include In relationship by course_area_name
-CREATE TABLE Courses (
-	course_id INTEGER PRIMARY KEY,
-	title TEXT NOT NULL,
-	description TEXT,
-  	course_area TEXT REFERENCES Course_areas NOT NULL,
-  	duration INTEGER NOT NULL /* to clarify */
-);
-
--- include Handles relationship by eid
-CREATE TABLE Offerings (
-	course_id INTEGER REFERENCES Courses ON DELETE CASCADE,
+CREATE TABLE Cancels (
+  	cust_id INTEGER REFERENCES Customers,
+  	course_id INTEGER,
   	launch_date DATE,
-  	start_date DATE NOT NULL,
-  	end_date DATE NOT NULL,
-  	registration_deadline DATE NOT NULL,
-  	target_number_registrations INTEGER NOT NULL,
-    seating_capacity INTEGER NOT NULL,
-  	fees NUMERIC NOT NULL,
-  	eid INTEGER REFERENCES Administrators NOT NULL,
-  	PRIMARY KEY (course_id, launch_date)
-);
-
--- include Conducts relationship by eid & rid
-CREATE TABLE Sessions (
-	course_id INTEGER,
-  	launch_date DATE,
-  	sid INTEGER,
-  	date DATE NOT NULL, /* weekday */
-  	start_time INTEGER NOT NULL, /* check constraints */
-  	end_time INTEGER NOT NULL, /* check constraints */
-  	eid INTEGER REFERENCES Instructors,
-  	rid INTEGER REFERENCES Rooms,
-  	PRIMARY KEY (course_id, launch_date, sid),
-  	FOREIGN KEY (course_id, launch_date) REFERENCES Offerings ON DELETE CASCADE
-);
-
-CREATE TABLE Rooms (
-	rid INTEGER PRIMARY KEY,
-  	location TEXT NOT NULL,
-  	seating_capacity INTEGER NOT NULL
-);
-
--- course-employee relationships need to use trigger 
-CREATE TABLE Specializes (
-	eid INTEGER REFERENCES Instructors,
-  	area TEXT REFERENCES Course_areas,
-  	PRIMARY KEY (eid, area)
-);
-
-CREATE TABLE Employees (
-  	eid INTEGER PRIMARY KEY,
-  	name TEXT NOT NULL,
-  	email TEXT NOT NULL,
-  	phone TEXT NOT NULL,
-  	address TEXT,
-  	join_date DATE NOT NULL,
-	depart_date DATE
-);
-
--- Trigger to enforce Either Or
-CREATE TABLE Part_time_Emp (
-	eid INTEGER PRIMARY KEY REFERENCES Employees ON DELETE CASCADE,
-  	hourly_rate NUMERIC NOT NULL
-);
-
-CREATE TABLE Full_time_Emp (
-	eid INTEGER PRIMARY KEY REFERENCES Employees ON DELETE CASCADE,
-  	monthly_salary NUMERIC NOT NULL
-);
-
-CREATE TABLE Instructors (
-  	eid INTEGER PRIMARY KEY REFERENCES Employees ON DELETE CASCADE
-);
-
-CREATE TABLE Part_time_instructors (
-  	eid INTEGER PRIMARY KEY REFERENCES Part_time_Emp REFERENCES Instructors ON DELETE CASCADE	
-);
-
-CREATE TABLE Full_time_instructors (
-  	eid INTEGER PRIMARY KEY REFERENCES Full_time_Emp REFERENCES Instructors ON DELETE CASCADE
-);
-
-CREATE TABLE Administrators (
-  	eid INTEGER PRIMARY KEY REFERENCES Full_time_Emp ON DELETE CASCADE
-);
-
-CREATE TABLE Managers (
-  	eid INTEGER PRIMARY KEY REFERENCES Full_time_Emp ON DELETE CASCADE
-);
-
-CREATE TABLE Pay_slips (
-	eid INTEGER REFERENCES Employees ON DELETE CASCADE,
-  	payment_date DATE,
-  	amount NUMERIC NOT NULL,
-  	num_work_hours INTEGER,
-  	num_work_days INTEGER,
-  	PRIMARY KEY (eid, payment_date)
+  	sid INTEGER,  	
+  	date DATE,
+  	refund_amt NUMERIC(10,2) DEFAULT 0 CHECK (refund_amt >= 0), /* bought: 90% of offering fees, redeemed: 0 */
+  	package_credit INTEGER CHECK (package_credit IN (0, 1)), /* bought: 0, redeemed: 1 */
+  	PRIMARY KEY (cust_id, course_id, launch_date, sid, date),
+  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions,
+	CHECK (launch_date <= date)
 );
