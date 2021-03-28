@@ -110,7 +110,7 @@ CREATE TABLE Courses (
 	title TEXT NOT NULL,
 	description TEXT,
   	course_area TEXT REFERENCES Course_areas NOT NULL,
-  	duration INTEGER NOT NULL
+  	duration INTEGER NOT NULL /* to clarify */
 );
 
 -- include Handles relationship by eid
@@ -135,7 +135,6 @@ CREATE TABLE Sessions (
   	date DATE NOT NULL, /* weekday */
   	start_time INTEGER NOT NULL, /* check constraints */
   	end_time INTEGER NOT NULL, /* check constraints */
-	/* need to clarify: each session duration is one hour? */
   	eid INTEGER REFERENCES Instructors,
   	rid INTEGER REFERENCES Rooms,
   	PRIMARY KEY (course_id, launch_date, sid),
