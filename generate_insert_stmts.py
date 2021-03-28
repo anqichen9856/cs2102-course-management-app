@@ -5,7 +5,9 @@ def make_values(row, n):
     l = []
     for i in range(n):
         val = str(row[i])
-        if re.match(r'[0-9]+(\.[0-9]+)*', val):
+        if val == '':
+            l.append('NULL')
+        elif re.match(r'[0-9]+(\.[0-9]+)*', val):
             l.append(val)
         else:
             l.append('\'' + val + '\'')
