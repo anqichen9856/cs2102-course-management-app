@@ -105,7 +105,7 @@ CREATE TABLE Offerings (
     seating_capacity INTEGER NOT NULL CHECK (seating_capacity >= 0),
   	fees NUMERIC(10,2) NOT NULL CHECK (fees >= 0),
   	eid INTEGER REFERENCES Administrators NOT NULL,
-  	PRIMARY KEY (course_id, launch_date)
+  	PRIMARY KEY (course_id, launch_date),
 	CHECK (launch_date <= registration_deadline),
 	CHECK (start_date <= end_date),
 	CHECK (registration_deadline <= start_date - INTERVAL '10 days'),
@@ -128,7 +128,8 @@ CREATE TABLE Sessions (
 	CHECK ((EXTRACT(DOW FROM date)) IN (1,2,3,4,5)),
 	CHECK ((start_time >= 9 and start_time < 12) or (start_time >= 14 and start_time < 18)),
 	CHECK ((end_time > 9 and end_time <= 12) or (end_time > 14 and end_time <= 18)),
-	CHECK (start_time < end_time)
+	CHECK (start_time < end_time),
+	CHECK (launch_date <= date - INTERVAL '10 days')
 );
 
 -- course-employee relationships need to use trigger 
@@ -189,7 +190,9 @@ CREATE TABLE Redeems(
 	date DATE,  	
     PRIMARY KEY (package_id, card_number, buy_date, course_id, launch_date, sid, date),
     FOREIGN KEY (package_id, card_number, buy_date) REFERENCES Buys,
-  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions
+  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions,
+	CHECK (buy_date <= date),
+	CHECK (launch_date <= date)
 );
 
 CREATE TABLE Registers(
@@ -199,7 +202,8 @@ CREATE TABLE Registers(
     sid INTEGER,
     date DATE,
     PRIMARY KEY (card_number, course_id, launch_date, sid, date),
-  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions 	
+  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions,
+	CHECK (launch_date <= date)
 );
 
 CREATE TABLE Cancels (
@@ -211,5 +215,6 @@ CREATE TABLE Cancels (
   	refund_amt NUMERIC(10,2) DEFAULT 0 CHECK (refund_amt >= 0), /* bought: 90% of offering fees, redeemed: 0 */
   	package_credit INTEGER CHECK (package_credit IN (0, 1)), /* bought: 0, redeemed: 1 */
   	PRIMARY KEY (cust_id, course_id, launch_date, sid, date),
-  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions
+  	FOREIGN KEY (course_id, launch_date, sid) REFERENCES Sessions,
+	CHECK (launch_date <= date)
 );
