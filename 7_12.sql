@@ -127,12 +127,12 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 10
--- course offering id? 
+-- course offering id? - cid + launch date
 -- do we need to insert into sessions too? 
 -- targer_num_registration vs. capacity? 
 -- data type of info stored in array. 
--- conditions checked: non-negative, launch_date <= registration ddl, ddl at least 10 days from start date
--- start and end dates, seating capacity, availabel instructors.
+-- conditions checked: non-negative, launch_date <= registration ddl, ddl at least 10 days from start date. 
+-- start and end dates, seating capacity, available instructors.
 CREATE OR REPLACE PROCEDURE add_course_offering(cid INT, fees NUMERIC, launch_date DATE, registration_deadline DATE, eid INT, session_info TEXT[][])
 AS $$
 DECLARE
@@ -146,40 +146,34 @@ DECLARE
 BEGIN
     SELECT MAX(seating_capacity) INTO target_number_registrations FROM Rooms;
     BEGIN TRANSACTION;
-        IF cid IN (SELECT cid FROM Courses) AND fees >=0 AND registration_deadline >= launch_date AND eid IN (SELECT eid from Administrators)
-        THEN 
-            FOREACH m SLICE 1 IN ARRAY session_info
-            LOOP
-                date := m[1];
-                start_hour := m[2];
-                rid := m[3];
-                IF NOT EXISTS (
-                    SELECT 1 FROM find_instructors(cid, date, start_hour);
-                )
-                THEN 
-                    RAISE EXCEPTION 'No available instructor for session on %, start hour %, rid %', date, start_hour, rid;
-                END IF;
-                
-                IF date < start_date 
-                THEN start_date := date;
-                END IF;
-                
-                IF date > end_date
-                THEN end_date := date;
-                END IF;
-
-                SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = rid;
-                IF curr_capacity < target_number_registrations
-                THEN target_number_registrations := curr_capacity;
-                END IF;
-
-            END LOOP;
-            IF (SELECT DATE_PART('day', start_date - registration_deadline)) < 10
-            THEN
-                RAISE EXCEPTION 'registration deadline should be at least 10 days before start date.';
+         
+        FOREACH m SLICE 1 IN ARRAY session_info
+        LOOP
+            date := m[1];
+            start_hour := m[2];
+            rid := m[3];
+            IF NOT EXISTS (
+                SELECT 1 FROM find_instructors(cid, date, start_hour);
+            )
+            THEN 
+                RAISE EXCEPTION 'No available instructor for session on %, start hour %, rid %', date, start_hour, rid;
             END IF;
-            INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target_number_registrations, targer_num_registration, fees, eid);
-        END IF;
+            
+            IF date < start_date 
+            THEN start_date := date;
+            END IF;
+            
+            IF date > end_date
+            THEN end_date := date;
+            END IF;
+
+            SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = rid;
+            IF curr_capacity < target_number_registrations
+            THEN target_number_registrations := curr_capacity;
+            END IF;
+
+        END LOOP;
+        INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target_number_registrations, targer_num_registration, fees, eid);
     COMMIT;
 END;
 $$ LANGUAGE plpgsql;
