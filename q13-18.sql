@@ -7,14 +7,14 @@ BEGIN
 IF EXISTS (SELECT 1 FROM Owns O WHERE O.cust_id == cust_id 
      AND EXISTS (SELECT 1 FROM Credit_cards C WHERE 
         C.number = O.card_number AND 
-        C.expiry_date >= CURDATE())) THEN 
+        C.expiry_date >= CURRENT_DATE)) THEN 
 INSERT (SELECT num_free_registrations FROM Course_packages P WHERE P.package_id = package_id) INTO n;              
-INSERT INTO Buys VALUES (package_id, card_number, CURDATE(), n);
+INSERT INTO Buys VALUES (package_id, card_number, CURRENT_DATE, n);
 END IF;
 END;                
 $$ LANGUAGE plpgsql;
 
---14
+--14 create json file 
 CREATE OR REPLACE FUNCTION get_my_course_package (cust_id INT)
 RETURNS json AS $$
 SELECT row_to_json(row)
@@ -40,7 +40,7 @@ RETURNS TABLE(title TEXT, course_area TEXT, start_date DATE, end_date DATE, regi
        NATURAL LEFT OUTER JOIN(SELECT course_id, launch_date, count(*) AS count1 FROM Registers GROUP BY course_id, launch_date)
        NATURAL LEFT OUTER JOIN(SELECT course_id, launch_date, count(*) AS count2 FROM Redeems GROUP BY course_id, launch_date)
         )
-    WHERE registration_deadline >= CURDATE() AND (count_registers+ count_redeems)< seating_capacity  
+    WHERE registration_deadline >= CURRENT_DATE AND (count_registers+ count_redeems)< seating_capacity  
     ORDER BY registration_deadline, title;                 
                           
 $$ LANGUAGE plpgsql;                 
@@ -65,9 +65,13 @@ $$ LANGUAGE plpgsql;
                  
                  
 --17either update Registers or Redeems                 
-CREATE OR REPLACE FUNCTION register_session(cust_id INT, course_id, session number, and payment method (credit card or redemption from active package))                 
+CREATE OR REPLACE FUNCTION register_session(cust_id INT, course_id, session number, and payment method (credit card or redemption from active package))               
                                                                                                         
--18
+--18
 CREATE OR REPLACE FUNCTION get_my_registrations(cust_id INT)
-RETURNS TABLE(title TEXT, fees, session_date DATE, start_time TIME, duration TIME, instructor_name TEXT) AS $$                                                                                                       
+RETURNS TABLE(title TEXT, fees, session_date DATE, start_time TIME, duration TIME, instructor_name TEXT) AS $$
+SELECT title, fees, session_date, start_time, duration , instructor_name 
+FROM 
+WHERE  
+ORDER BY session_date, start_time                                                                                                      
 $$ LANGUAGE plpgsql;
