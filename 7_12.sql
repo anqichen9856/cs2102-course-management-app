@@ -175,7 +175,7 @@ BEGIN
 
             END LOOP;
             IF (SELECT DATE_PART('day', start_date - registration_deadline)) < 10
-            THEN 
+            THEN
                 RAISE EXCEPTION 'registration deadline should be at least 10 days before start date.';
             END IF;
             INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target_number_registrations, targer_num_registration, fees, eid);
