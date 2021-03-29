@@ -1,7 +1,7 @@
 -- 1
 CREATE OR REPLACE PROCEDURE add_employee (
-    name TEXT, address TEXT, phone TEXT, email TEXT, salary NUMERIC, join_date DATE, category TEXT, course_areas ANY
-    -- course_areas may be enumeratable strings
+    name TEXT, address TEXT, phone TEXT, email TEXT, salary NUMERIC, join_date DATE, category TEXT, course_areas TEXT ARRAY
+    -- course_areas: '{"a", "b", ...}'
 )
 AS $$
 DECLARE
@@ -12,19 +12,15 @@ BEGIN
         RAISE EXCEPTION 'Category of employee must be one of the following: Administrator, Manager, Part-time Instructor, Full-time Instructor.'
     END IF;
     BEGIN TRANSACTION;
-        SELECT MAX(eid) + 1 INTO new_eid FROM Employees;
-        -- empty table?
+        SELECT COALESCE(MAX(eid), 0) + 1 INTO new_eid FROM Employees;
         INSERT INTO Employees VALUES (new_eid, name, email, phone, address, join_date, NULL);
         IF category = 'Manager' THEN
             --course areas must be nonempty
             --set eid of areas to manager eid in Course_areas
             INSERT INTO Full_time_Emp VALUES (new_eid, salary);
             INSERT INTO Managers VALUES (new_eid);
-            FOR area IN course_areas
-            LOOP
-                UPDATE Course_areas
-                SET eid = new_eid
-                WHERE name = area;
+            FOREACH area IN ARRAY course_areas LOOP
+                UPDATE Course_areas SET eid = new_eid WHERE name = area;
             END LOOP;
         ELSEIF category = 'Full-time Instructor' THEN
             --course areas must be nonempty
@@ -35,8 +31,7 @@ BEGIN
             INSERT INTO Full_time_Emp VALUES (new_eid, salary);
             INSERT INTO Full_time_instructors VALUES (new_eid);
             INSERT INTO Instructors VALUES (new_eid);
-            FOR area IN course_areas
-            LOOP
+            FOREACH area IN ARRAY course_areas LOOP
                 INSERT INTO Specializes VALUES (new_eid, area);
             END LOOP;
         ELSEIF category = 'Part-time Instructor' THEN
@@ -46,8 +41,7 @@ BEGIN
             INSERT INTO Part_time_Emp VALUES (new_eid, salary);
             INSERT INTO Part_time_instructors VALUES (new_eid);
             INSERT INTO Instructors VALUES (new_eid);
-            FOR area IN course_areas
-            LOOP
+            FOREACH area IN ARRAY course_areas LOOP
                 INSERT INTO Specializes VALUES (new_eid, area);
             END LOOP;
         ELSE 
@@ -93,7 +87,7 @@ DECLARE
     new_cust_id INTEGER;
 BEGIN
     BEGIN TRANSACTION;
-        SELECT MAX(cust_id) + 1 INTO new_cust_id FROM Customers;
+        SELECT COALESCE(MAX(cust_id), 0) + 1 INTO new_cust_id FROM Customers;
         INSERT INTO Customers VALUES (new_cust_id, name, email, phone, address);
         INSERT INTO Credit_cards VALUES (card_number, expiry_date, cvv);
         INSERT INTO Owns VALUES (new_cust_id, card_number, CURRENT_DATE);
@@ -118,13 +112,13 @@ AS $$
 DECLARE
     new_course_id INTEGER;
 BEGIN
-    SELECT MAX(course_id) + 1 INTO new_course_id FROM Courses;
+    SELECT  COALESCE(MAX(course_id), 0) + 1 INTO new_course_id FROM Courses;
     INSERT INTO Courses VALUES (new_course_id, title, description, area, duration);
 END;
 $$ LANGUAGE plpgsql;
 
 --6
-CREATE OR REPLACE FUNCTION find_instructors (cid INTEGER, session_date DATE, session_start_hour INTEGER)
+CREATE OR REPLACE FUNCTION find_instructors (cid INTEGER, session_date DATE, session_start_time NUMERIC)
 RETURNS TABLE (eid INTEGER, name TEXT) AS $$ 
 DECLARE
     curs CURSOR FOR (
@@ -132,43 +126,43 @@ DECLARE
         FROM Instructors NATURAL JOIN Employees NATURAL JOIN Specializes
     ); 
     r RECORD;
-    area TEXT;
-    session_end_hour INTEGER;
-    total_hours_that_month INTEGER;
+    a TEXT;
+    d NUMERIC;
+    session_end_time NUMERIC;
+    total_hours_that_month NUMERIC;
 BEGIN 
 -- an instructor who is assigned to teach a course session must be specialized in that course area. 
 -- Each instructor can teach at most one course session at any hour. 
-/* clarify: different day, same hour can or not? */
-    -- not exists (same date, same start hour)
+    -- no overlap
 -- there must be at least one hour of break between any two course sessions that the instructor is teaching
     -- not exists (start - 1 < prev_end <= start or end <= next_start < end + 1 on the same day)
 -- Each part-time instructor must not teach more than 30 hours for each month
     -- the month that contains session_date
 
-    SELECT course_area INTO area FROM Courses WHERE course_id = cid;
-    session_end_hour := session_start_hour + 1;
+    SELECT course_area, duration INTO a, d FROM Courses WHERE course_id = cid;
+    session_end_hour := session_start_hour + d;
     OPEN curs; 
     LOOP
         FETCH curs INTO r;
         EXIT WHEN NOT FOUND;
-        SELECT COUNT(*) + 1 INTO total_hours_that_month 
+        SELECT SUM(end_time - start_time) + d INTO total_hours_that_month 
             FROM Sessions WHERE eid = r.eid AND 
             date BETWEEN 
                 DATE_TRUNC('month', session_date)::DATE AND 
                 (DATE_TRUNC('month', session_date) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
-        IF r.area = area 
+        IF r.area = a
             AND NOT EXISTS (
                 SELECT 1 FROM Sessions
                 WHERE eid = r.eid
                 AND date = session_date
-                AND start_time = session_start_hour
+                AND start_time = session_start_hour /* overlap */
             )
             AND NOT EXISTS (
                 SELECT 1 FROM Sessions
                 WHERE eid = r.eid
                 AND date = session_date
                 AND (end_time > session_start_hour - 1 AND end_time <= session_start_hour)
-                AND (start_time >= session_end_hour AND start_time < session_end_hour + 1)
+                AND (start_time >= session_end_hour AND start_time < session_end_hour + 1) /* 1 hour break */
             )
             AND total_hours_that_month <= 30
         THEN
