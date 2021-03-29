@@ -24,13 +24,12 @@ def make_stmts_for_table(df, name):
     #         break
     for index, row in df.iterrows():
         values = make_values(row, n)
-        l.append('INSERT INTO TABLE ' + name + ' VALUES (' + values + ');')
+        l.append('INSERT INTO ' + name + ' VALUES (' + values + ');')
     return '\n'.join(l)
 
 workbook = pd.read_excel('data.xlsx', sheet_name=None, engine='openpyxl')
-f = open('data.sql', 'a')
+f = open('data.sql', 'w+')
 for name, df in workbook.items():
-    print(name)
     f.write(make_stmts_for_table(df, name) + '\n\n')
 
 # For individual sheet testing    
