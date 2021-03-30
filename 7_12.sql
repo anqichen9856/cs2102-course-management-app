@@ -86,7 +86,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 9
+-- 9 DONE
+-- start_date, end_date both inclusive
+-- hour array indicates whether the room is available for the entire hour. eg. if the room has a session starting from 15:30, 15 will not be in available hours.
 CREATE OR REPLACE FUNCTION get_available_rooms(start_date DATE, end_date DATE)
 RETURNS TABLE (rid INT, capacity INT, day DATE, available_hours INT[]) AS $$
 DECLARE
@@ -95,37 +97,41 @@ DECLARE
     r_room RECORD;
     r_day RECORD;
     curs_room CURSOR FOR (SELECT * FROM Rooms ORDER BY rid);
-    curs_day CURSOR FOR (SELECT d.as_of_date::DATE FROM GENERATE_SERIES(start_date, end_date, '1 day'::INTERVAL) d (as_of_date));
+    curs_day CURSOR FOR (SELECT d.as_of_date::DATE FROM GENERATE_SERIES(start_date - '1 day'::INTERVAL, end_date, '1 day'::INTERVAL) d (as_of_date));
 BEGIN
     OPEN curs_room;
+	OPEN curs_day;
     LOOP
         FETCH curs_room INTO r_room;
         EXIT WHEN NOT FOUND;
         rid := r_room.rid;
         capacity := r_room.seating_capacity;
-        LOOP 
+		MOVE FIRST FROM curs_day;
+        LOOP
             FETCH curs_day INTO r_day;
             EXIT WHEN NOT FOUND;
             day := r_day.as_of_date::DATE;
             hours_array := '{}';
-            curr_hour := 0;
+            curr_hour := 9;
             LOOP
-                EXIT WHEN curr_hour > 24;
-                IF NOT EXISTS (
+                EXIT WHEN curr_hour >= 18;
+                IF (curr_hour <= 12 OR curr_hour >= 14)
+                AND NOT EXISTS (
                     SELECT 1
                     FROM Sessions S
                     WHERE S.date = day
-                    AND S.rid = rid
-                    AND ((curr_hour = S.start_time) OR (curr_hour > S.start_time AND curr < S.end_time))
+                    AND S.rid = r_room.rid
+                    AND ((curr_hour = S.start_time) OR (curr_hour > S.start_time AND curr_hour < S.end_time))
                 ) 
                 THEN hours_array := hours_array || curr_hour;
                 END IF;
                 curr_hour := curr_hour + 1;
             END LOOP;
+			available_hours := hours_array;
             RETURN NEXT;
         END LOOP;
     END LOOP;
-    CLOSE curs_r;
+    CLOSE curs_room;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -181,7 +187,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 11 TODO: make attributes unique
+-- 11 DONE
 -- checked in schema: (1) unique entry; (2) start_date <= end date; (3) price >= 0.
 -- checked in procedure: curr_date between start and end date
 CREATE OR REPLACE PROCEDURE add_course_package(name TEXT, num_free_registrations INT, start_date DATE, end_date DATE, price NUMERIC)
