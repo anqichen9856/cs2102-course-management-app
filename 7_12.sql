@@ -1,5 +1,6 @@
--- 7
+-- 7 DONE
 -- we need to assume that the start_date and end_date are within the same month.
+-- hour array indicates whether the instructor is available for the entire hour. eg. if the room has a session starting from 15:30, 15 will not be in available hours.
 CREATE OR REPLACE FUNCTION get_available_instructors(cid INT, start_date DATE, end_date DATE)
 RETURNS TABLE (eid INT, name TEXT, hours INT, day DATE, available_hours INT[]) AS $$
 DECLARE
@@ -23,15 +24,14 @@ BEGIN
         SELECT COALESCE(SUM(end_time - start_time),0) INTO total_hours_that_month 
         FROM Sessions S 
  		WHERE S.eid = r_instructor.eid 
- 		AND S.date BETWEEN 
+ 		AND S.date BETWEEN
                  DATE_TRUNC('month', start_date)::DATE AND 
                  (DATE_TRUNC('month', start_date) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
-        IF r_instructor.area = area 
- 		AND total_hours_that_month + d <= 30
+        IF r_instructor.area = area AND total_hours_that_month + d <= 30
         THEN
             eid := r_instructor.eid;
             name := r_instructor.name;
-             hours := total_hours_that_month;
+            hours := total_hours_that_month;
             -- get date and available hours
 		    MOVE FIRST FROM curs_day;
             LOOP 
