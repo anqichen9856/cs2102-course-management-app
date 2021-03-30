@@ -1,4 +1,5 @@
 -- 7
+-- we need to assume that the start_date and end_date are within the same month.
 CREATE OR REPLACE FUNCTION get_available_instructors(cid INT, start_date DATE, end_date DATE)
 RETURNS TABLE (eid INT, name TEXT, hours INT, day DATE, available_hours INT[]) AS $$
 DECLARE
@@ -6,53 +7,62 @@ DECLARE
     curr_hour INT;
     r_instructor RECORD;
     r_day RECORD;
-    curs_instructor CURSOR FOR (SELECT eid, name, area FROM Instructors NATURAL JOIN Employees NATURAL JOIN Specializes ORDER BY eid);
-    curs_day CURSOR FOR (SELECT d.as_of_date::DATE FROM GENERATE_SERIES(start_date, end_date, '1 day'::INTERVAL) d (as_of_date));
+    curs_instructor CURSOR FOR (SELECT Employees.eid, Employees.name, area FROM Instructors NATURAL JOIN Employees NATURAL JOIN Specializes ORDER BY eid);
+    curs_day CURSOR FOR (SELECT d.as_of_date::DATE FROM GENERATE_SERIES(start_date - '1 day'::INTERVAL, end_date, '1 day'::INTERVAL) d (as_of_date));
     total_hours_that_month INT;
-    duration INT;
+    d INT;
     area TEXT;
 BEGIN
-    SELECT course_area, duration INTO area, duration FROM Courses WHERE course_id = cid;
+    SELECT course_area, duration INTO area, d FROM Courses WHERE course_id = cid;
     OPEN curs_instructor;
+    OPEN curs_day;
     LOOP
         FETCH curs_instructor INTO r_instructor;
         EXIT WHEN NOT FOUND;
-        -- get total hours that month
-        SELECT SUM(end_time) - SUM(start_time) INTO total_hours_that_month 
-            FROM Sessions WHERE eid = r.eid AND
-            date BETWEEN 
-                DATE_TRUNC('month', session_date)::DATE AND 
-                (DATE_TRUNC('month', session_date) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
-        IF r_instructor.area = area AND total_hours_that_month + duration <= 30
+        -- get total hours that month, if no sessions taught, 0 hour
+        SELECT COALESCE(SUM(end_time - start_time),0) INTO total_hours_that_month 
+        FROM Sessions S 
+ 		WHERE S.eid = r_instructor.eid 
+ 		AND S.date BETWEEN 
+                 DATE_TRUNC('month', start_date)::DATE AND 
+                 (DATE_TRUNC('month', start_date) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
+        IF r_instructor.area = area 
+ 		AND total_hours_that_month + d <= 30
         THEN
             eid := r_instructor.eid;
             name := r_instructor.name;
-            hours := total_hours_that_month;
+             hours := total_hours_that_month;
             -- get date and available hours
+		    MOVE FIRST FROM curs_day;
             LOOP 
                 FETCH curs_day INTO r_day;
                 EXIT WHEN NOT FOUND;
                 day := r_day.as_of_date::DATE;
                 hours_array := '{}';
-                curr_hour := 0;
+                curr_hour := 9;
                 LOOP
-                    EXIT WHEN curr_hour > 24;
-                    IF NOT EXISTS (
+                    EXIT WHEN curr_hour >= 18;
+                    IF (curr_hour <= 12 OR curr_hour >= 14)
+                    AND NOT EXISTS (
                         SELECT 1
                         FROM Sessions S
                         WHERE S.date = day
-                        AND S.eid = eid
-                        AND ((curr_hour = S.start_time) OR (curr_hour > S.start_time AND curr < S.end_time))
+                        AND S.eid = r_instructor.eid
+                        AND ((curr_hour = S.start_time) 
+							 	OR (S.start_time > curr_hour AND S.start_time < curr_hour + 1) 
+							 	OR (curr_hour > S.start_time AND curr_hour < S.end_time))
                     ) 
                     THEN hours_array := hours_array || curr_hour;
                     END IF;
                     curr_hour := curr_hour + 1;
                 END LOOP;
+                available_hours := hours_array;
                 RETURN NEXT;
             END LOOP;
         END IF;
     END LOOP;
-    CLOSE curs_r;
+    CLOSE curs_instructor;
+    CLOSE curs_day;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -121,8 +131,10 @@ BEGIN
                     FROM Sessions S
                     WHERE S.date = day
                     AND S.rid = r_room.rid
-                    AND ((curr_hour = S.start_time) OR (curr_hour > S.start_time AND curr_hour < S.end_time))
-                ) 
+                    AND ((curr_hour = S.start_time) 
+							 	OR (S.start_time > curr_hour AND S.start_time < curr_hour + 1) 
+							 	OR (curr_hour > S.start_time AND curr_hour < S.end_time))
+				)
                 THEN hours_array := hours_array || curr_hour;
                 END IF;
                 curr_hour := curr_hour + 1;
@@ -132,6 +144,7 @@ BEGIN
         END LOOP;
     END LOOP;
     CLOSE curs_room;
+    CLOSE curs_day;
 END;
 $$ LANGUAGE plpgsql;
 
