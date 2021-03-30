@@ -56,13 +56,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 8 
-CREATE OR REPLACE FUNCTION find_rooms(session_date DATE, start_hour INT, duration INT)
+-- 8 DONE
+-- checked: the room cannot be occupied by another session at the same day and has overlap timing with the input session
+CREATE OR REPLACE FUNCTION find_rooms(session_date DATE, start_hour NUMERIC, duration NUMERIC)
 RETURNS TABLE (rid INT) AS $$
 DECLARE
     curs CURSOR FOR (SELECT * FROM Rooms);
     r RECORD;
+    end_hour NUMERIC;
 BEGIN
+    end_hour := start_hour + duration;
     OPEN curs;
     LOOP
         FETCH curs INTO r;
@@ -70,9 +73,9 @@ BEGIN
         IF NOT EXISTS (
             SELECT 1 
             FROM Sessions S
-            WHERE S.rid = rid
+            WHERE S.rid = r.rid
             AND S.date = session_date
-            AND ((start_hour >= S.start_time AND start_hour < S.end_time) OR (start_hour + duration > S.start_time AND start_hour + duration <= S.end_time))
+            AND ((start_hour >= S.start_time AND start_hour < S.end_time) OR (end_hour > S.start_time AND end_hour <= S.end_time))
         )
         THEN 
             rid := r.rid;
@@ -178,25 +181,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 11
+-- 11 TODO: make attributes unique
+-- checked in schema: (1) unique entry; (2) start_date <= end date; (3) price >= 0.
+-- checked in procedure: curr_date between start and end date
 CREATE OR REPLACE PROCEDURE add_course_package(name TEXT, num_free_registrations INT, start_date DATE, end_date DATE, price NUMERIC)
 AS $$
 DECLARE
     new_pkg_id INT;
 BEGIN
-    SELECT MAX(package_id) + 1 INTO new_pkg_id FROM Course_packages;
-    -- check if end date is after start date
-    -- check num_free_registrations and price are non-negative
-    IF start_date <= end_date AND price >= 0 AND num_free_registrations > 0 
-    THEN
-        INSERT INTO Course_packages VALUES (new_pkg_id, num_free_registrations, start_date, end_date, name, price);
-    ELSE 
-        RAISE EXCEPTION 'tuple not valid.';
-    END IF;
+    SELECT COALESCE(MAX(package_id), 0) + 1 INTO new_pkg_id FROM Course_packages;
+    INSERT INTO Course_packages VALUES (new_pkg_id, num_free_registrations, start_date, end_date, name, price);
 END;
 $$ LANGUAGE plpgsql;
 
--- 12
+-- 12 DONE
 CREATE OR REPLACE FUNCTION get_available_course_packages()
 RETURNS TABLE (name TEXT, num_free_registrations INT, sale_end_date DATE, price NUMERIC) AS $$
 DECLARE
