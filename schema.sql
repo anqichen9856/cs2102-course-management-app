@@ -76,7 +76,7 @@ CREATE TABLE Pay_slips (
 CREATE TABLE Rooms (
 	rid INTEGER PRIMARY KEY,
   	location TEXT NOT NULL,
-  	seating_capacity INTEGER NOT NULL CHECK (seating_capacity >= 0)
+  	seating_capacity INTEGER NOT NULL CHECK (seating_capacity > 0)
 );
 
 -- include Manages relationship by eid
@@ -91,7 +91,7 @@ CREATE TABLE Courses (
 	title TEXT NOT NULL,
 	description TEXT,
   	course_area TEXT REFERENCES Course_areas NOT NULL,
-  	duration NUMERIC(3,1) NOT NULL CHECK (duration >= 0)
+  	duration NUMERIC(4,2) NOT NULL CHECK (duration > 0)
 );
 
 -- include Handles relationship by eid
@@ -101,8 +101,8 @@ CREATE TABLE Offerings (
   	start_date DATE NOT NULL,
   	end_date DATE NOT NULL,
   	registration_deadline DATE NOT NULL,
-  	target_number_registrations INTEGER NOT NULL CHECK (target_number_registrations >= 0),
-    seating_capacity INTEGER NOT NULL CHECK (seating_capacity >= 0),
+  	target_number_registrations INTEGER NOT NULL CHECK (target_number_registrations > 0),
+    seating_capacity INTEGER NOT NULL CHECK (seating_capacity > 0),
   	fees NUMERIC(10,2) NOT NULL CHECK (fees >= 0),
   	eid INTEGER REFERENCES Administrators NOT NULL,
   	PRIMARY KEY (course_id, launch_date),
@@ -119,15 +119,14 @@ CREATE TABLE Sessions (
   	launch_date DATE,
   	sid INTEGER,
   	date DATE NOT NULL, 
-  	start_time NUMERIC(3,1) NOT NULL, 
-  	end_time NUMERIC(3,1) NOT NULL, 
+  	start_time NUMERIC(4,2) NOT NULL, 
+  	end_time NUMERIC(4,2) NOT NULL, 
   	eid INTEGER REFERENCES Instructors,
   	rid INTEGER REFERENCES Rooms,
   	PRIMARY KEY (course_id, launch_date, sid),
   	FOREIGN KEY (course_id, launch_date) REFERENCES Offerings ON DELETE CASCADE,
 	CHECK ((EXTRACT(DOW FROM date)) IN (1,2,3,4,5)),
-	CHECK ((start_time >= 9 and start_time < 12) or (start_time >= 14 and start_time < 18)),
-	CHECK ((end_time > 9 and end_time <= 12) or (end_time > 14 and end_time <= 18)),
+	CHECK ((start_time >= 9 and end_time <= 12) or (start_time >= 14 and end_time <= 18)),
 	CHECK (start_time < end_time),
 	CHECK (launch_date <= date - INTERVAL '10 days')
 );
@@ -164,7 +163,7 @@ CREATE TABLE Owns (
 
 CREATE TABLE Course_packages (
 	package_id INTEGER PRIMARY KEY,
-  	num_free_registrations INTEGER NOT NULL CHECK (num_free_registrations >= 0),
+  	num_free_registrations INTEGER NOT NULL CHECK (num_free_registrations > 0),
 	sale_start_date DATE NOT NULL,
   	sale_end_date DATE NOT NULL,
   	name TEXT NOT NULL,
