@@ -14,6 +14,9 @@ DECLARE
     d INT;
     area TEXT;
 BEGIN
+    IF DATE_TRUNC('month', start_date)::DATE <> DATE_TRUNC('month', end_date)::DATE
+    THEN RAISE EXCEPTION 'start date and end date should be in the same month.';
+    END IF;
     SELECT course_area, duration INTO area, d FROM Courses WHERE course_id = cid;
     OPEN curs_instructor;
     OPEN curs_day;
