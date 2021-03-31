@@ -30,7 +30,8 @@ CREATE TABLE Employees (
   	address TEXT,
   	join_date DATE NOT NULL,
 	depart_date DATE,
-	CHECK (join_date <= depart_date)
+	CHECK (join_date <= depart_date),
+	UNIQUE (name, email, phone, address, join_date, depart_date)
 );
 
 -- Trigger to enforce Either Or
@@ -76,7 +77,8 @@ CREATE TABLE Pay_slips (
 CREATE TABLE Rooms (
 	rid INTEGER PRIMARY KEY,
   	location TEXT NOT NULL,
-  	seating_capacity INTEGER NOT NULL CHECK (seating_capacity > 0)
+  	seating_capacity INTEGER NOT NULL CHECK (seating_capacity > 0),
+	UNIQUE (location)
 );
 
 -- include Manages relationship by eid
@@ -91,7 +93,8 @@ CREATE TABLE Courses (
 	title TEXT NOT NULL,
 	description TEXT,
   	course_area TEXT REFERENCES Course_areas NOT NULL,
-  	duration NUMERIC(4,2) NOT NULL CHECK (duration > 0)
+  	duration NUMERIC(4,2) NOT NULL CHECK (duration > 0),
+	UNIQUE (title, description, course_area, duration)
 );
 
 -- include Handles relationship by eid
@@ -143,7 +146,8 @@ CREATE TABLE Customers (
   	name TEXT,
   	email TEXT,
   	phone TEXT,
-  	address TEXT
+  	address TEXT,
+	UNIQUE (name, email, phone, address)
 );
 
 CREATE TABLE Credit_cards (
@@ -168,7 +172,8 @@ CREATE TABLE Course_packages (
   	sale_end_date DATE NOT NULL,
   	name TEXT NOT NULL,
     price NUMERIC(10,2) NOT NULL CHECK (price >= 0),
-	CHECK (sale_start_date <= sale_end_date)
+	CHECK (sale_start_date <= sale_end_date),
+	UNIQUE (num_free_registrations, sale_start_date, sale_end_date, name, price)
 ); 
 
 CREATE TABLE Buys (
