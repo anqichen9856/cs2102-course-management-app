@@ -1,6 +1,6 @@
 -- 1
 CREATE OR REPLACE PROCEDURE add_employee (
-    name TEXT, address TEXT, phone TEXT, email TEXT, salary NUMERIC, join_date DATE, category TEXT, course_areas TEXT ARRAY
+    name TEXT, address TEXT, phone TEXT, email TEXT, salary_type TEXT, salary NUMERIC, join_date DATE, category TEXT, course_areas TEXT ARRAY
     -- course_areas: '{"a", "b", ...}'
 )
 AS $$
@@ -8,50 +8,58 @@ DECLARE
     new_eid INTEGER;
     area TEXT;
 BEGIN
-    IF category NOT IN ('Administrator', 'Manager', 'Part-time Instructor', 'Full-time Instructor') THEN 
-        RAISE EXCEPTION 'Category of employee must be one of the following: Administrator, Manager, Part-time Instructor, Full-time Instructor.'
+    IF salary_type NOT IN ('monthly', 'hourly') THEN 
+        RAISE EXCEPTION 'Salary type must be one of the following: monthly, hourly.';
     END IF;
-    BEGIN TRANSACTION;
+    IF category NOT IN ('administrator', 'manager', 'instructor') THEN 
+        RAISE EXCEPTION 'Category of employee must be one of the following: administrator, manager, instructor.';
+    END IF;
+    START TRANSACTION;
         SELECT COALESCE(MAX(eid), 0) + 1 INTO new_eid FROM Employees;
         INSERT INTO Employees VALUES (new_eid, name, email, phone, address, join_date, NULL);
-        IF category = 'Manager' THEN
-            --course areas must be nonempty
-            --set eid of areas to manager eid in Course_areas
+        IF category = 'manager' THEN
+            -- must be full-time
+            IF salary_type <> 'monthly' THEN 
+                RAISE EXCEPTION 'Salary type of manager must be monthly as all managers are full-time.';
+            END IF;
             INSERT INTO Full_time_Emp VALUES (new_eid, salary);
             INSERT INTO Managers VALUES (new_eid);
+            -- set eid of areas to manager eid in Course_areas (can be empty)
             FOREACH area IN ARRAY course_areas LOOP
                 UPDATE Course_areas SET eid = new_eid WHERE name = area;
             END LOOP;
-        ELSEIF category = 'Full-time Instructor' THEN
-            --course areas must be nonempty
-            --insert (eid, area) to Specializes
-            IF course_areas IS EMPTY THEN
+        ELSEIF category = 'instructor' THEN
+            -- course areas must be nonempty
+            IF array_length(course_areas, 1) = 0 THEN
                 RAISE EXCEPTION 'Course areas must be non-empty for adding an instructor.';
             END IF;
-            INSERT INTO Full_time_Emp VALUES (new_eid, salary);
-            INSERT INTO Full_time_instructors VALUES (new_eid);
             INSERT INTO Instructors VALUES (new_eid);
+            -- insert (eid, area) to Specializes
             FOREACH area IN ARRAY course_areas LOOP
                 INSERT INTO Specializes VALUES (new_eid, area);
             END LOOP;
-        ELSEIF category = 'Part-time Instructor' THEN
-            IF course_areas IS EMPTY THEN
-                RAISE EXCEPTION 'Course areas must be non-empty for adding an instructor.';
+            -- Full-time
+            IF salary_type = 'monthly' THEN
+                INSERT INTO Full_time_Emp VALUES (new_eid, salary);
+                INSERT INTO Full_time_instructors VALUES (new_eid);
+            -- Part-time
+            ELSE 
+                INSERT INTO Part_time_Emp VALUES (new_eid, salary);
+                INSERT INTO Part_time_instructors VALUES (new_eid);
             END IF;
-            INSERT INTO Part_time_Emp VALUES (new_eid, salary);
-            INSERT INTO Part_time_instructors VALUES (new_eid);
-            INSERT INTO Instructors VALUES (new_eid);
-            FOREACH area IN ARRAY course_areas LOOP
-                INSERT INTO Specializes VALUES (new_eid, area);
-            END LOOP;
         ELSE 
             -- administrator
-            --course areas must be empty
-            IF course_areas IS NOT EMPTY THEN
+            -- must be full-time
+            IF salary_type <> 'monthly' THEN 
+                RAISE EXCEPTION 'Salary type of administrator must be monthly as all administrators are full-time.';
+            END IF;
+            -- course areas must be empty
+            IF array_length(course_areas, 1) > 0 THEN
                 RAISE EXCEPTION 'Course areas must be empty for adding an administrator.';
             END IF;
             INSERT INTO Full_time_Emp VALUES (new_eid, salary);
             INSERT INTO Administrators VALUES (new_eid);
+        END IF;
     COMMIT;
 END;
 $$ LANGUAGE plpgsql;
@@ -86,7 +94,7 @@ AS $$
 DECLARE
     new_cust_id INTEGER;
 BEGIN
-    BEGIN TRANSACTION;
+    START TRANSACTION;
         SELECT COALESCE(MAX(cust_id), 0) + 1 INTO new_cust_id FROM Customers;
         INSERT INTO Customers VALUES (new_cust_id, name, email, phone, address);
         INSERT INTO Credit_cards VALUES (card_number, expiry_date, cvv);
@@ -99,7 +107,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE PROCEDURE update_credit_card (cust_id INT, card_number TEXT, expiry_date DATE, cvv INTEGER)
 AS $$
 BEGIN
-    BEGIN TRANSACTION;
+    START TRANSACTION;
         INSERT INTO Credit_cards VALUES (card_number, expiry_date, cvv);
         INSERT INTO Owns VALUES (cust_id, card_number, CURRENT_DATE);
     COMMIT;
@@ -133,14 +141,15 @@ DECLARE
 BEGIN 
 -- an instructor who is assigned to teach a course session must be specialized in that course area. 
 -- Each instructor can teach at most one course session at any hour. 
-    -- no overlap
+    -- s,e are new session
+    -- overlap：s <= s' <= e or s <= e' <= e
 -- there must be at least one hour of break between any two course sessions that the instructor is teaching
-    -- not exists (start - 1 < prev_end <= start or end <= next_start < end + 1 on the same day)
+    -- s,e are new session
+    -- <1h break: s-1 < e' <= s or e <= s' < e+1
 -- Each part-time instructor must not teach more than 30 hours for each month
     -- the month that contains session_date
-
     SELECT course_area, duration INTO a, d FROM Courses WHERE course_id = cid;
-    session_end_hour := session_start_hour + d;
+    session_end_time := session_start_time + d;
     OPEN curs; 
     LOOP
         FETCH curs INTO r;
@@ -155,14 +164,19 @@ BEGIN
                 SELECT 1 FROM Sessions
                 WHERE eid = r.eid
                 AND date = session_date
-                AND start_time = session_start_hour /* overlap */
+                AND (
+                    (start_time BETWEEN session_start_time AND session_end_time) 
+                    OR (end_time BETWEEN session_start_time AND session_end_time)
+                )
             )
             AND NOT EXISTS (
                 SELECT 1 FROM Sessions
                 WHERE eid = r.eid
                 AND date = session_date
-                AND (end_time > session_start_hour - 1 AND end_time <= session_start_hour)
-                AND (start_time >= session_end_hour AND start_time < session_end_hour + 1) /* 1 hour break */
+                AND (
+                    (end_time > session_start_time - 1 AND end_time <= session_start_time)
+                    OR (start_time >= session_end_time AND start_time < session_end_time + 1)
+                ) 
             )
             AND total_hours_that_month <= 30
         THEN
