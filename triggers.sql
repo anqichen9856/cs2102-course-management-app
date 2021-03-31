@@ -158,3 +158,19 @@ CREATE CONSTRAINT TRIGGER offering_consists_total_part_con_trigger
 AFTER INSERT OR UPDATE ON Offerings
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION offering_consists_total_part_con_func();
+
+/* Course area's manager must be active employee (till current date) */
+CREATE OR REPLACE FUNCTION course_area_manager_func() RETURNS TRIGGER 
+AS $$
+BEGIN
+    IF (SELECT depart_date FROM Employees E WHERE E.eid = NEW.eid) <= CURRENT_DATE THEN
+        RAISE EXCEPTION 'The manager has already left the company.';
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER course_area_manager_trigger
+AFTER INSERT OR UPDATE ON Course_areas
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION course_area_manager_func();
