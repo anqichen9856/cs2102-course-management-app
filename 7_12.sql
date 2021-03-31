@@ -152,37 +152,38 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 10
--- course offering id? - cid + launch date
--- do we need to insert into sessions too? 
--- targer_num_registration vs. capacity? 
--- data type of info stored in array. 
--- conditions checked: non-negative, launch_date <= registration ddl, ddl at least 10 days from start date. 
--- start and end dates, seating capacity, available instructors.
+-- course offering id: cid + launch date
 CREATE OR REPLACE PROCEDURE add_course_offering(cid INT, fees NUMERIC, launch_date DATE, registration_deadline DATE, eid INT, session_info TEXT[][])
 AS $$
 DECLARE
     date DATE;
-    start_hour INT;
-    rid INT;
+    start_hour NUMERIC;
+    curr_rid INT;
     start_date DATE := session_info[1][1];
     end_date DATE := session_info[1][1];
     target_number_registrations INT := -1;
     curr_capacity INT;
+    sid INT := 0;
+    instructor_id INT;
 BEGIN
-    SELECT MAX(seating_capacity) INTO target_number_registrations FROM Rooms;
     BEGIN TRANSACTION;
-         
         FOREACH m SLICE 1 IN ARRAY session_info
         LOOP
-            date := m[1];
-            start_hour := m[2];
-            rid := m[3];
+            date := m[1]::DATE;
+            start_hour := m[2]::NUMERIC;
+            curr_rid := m[3]::INT;
             IF NOT EXISTS (
                 SELECT 1 FROM find_instructors(cid, date, start_hour);
             )
             THEN 
                 RAISE EXCEPTION 'No available instructor for session on %, start hour %, rid %', date, start_hour, rid;
             END IF;
+
+            -- insert into sessions table
+            -- choose a random instructor from the list? 
+            sid := sid + 1;
+            SELECT MIN(eid) INTO instructor_id FROM find_instructors(cid, date, start_hour);
+            add_session(cid, launch_date, sid, date, start_hour, instructor_id, rid);
             
             IF date < start_date 
             THEN start_date := date;
@@ -192,13 +193,10 @@ BEGIN
             THEN end_date := date;
             END IF;
 
-            SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = rid;
-            IF curr_capacity < target_number_registrations
-            THEN target_number_registrations := curr_capacity;
-            END IF;
-
+            SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = curr_rid;
+            target_number_registrations := target_number_registrations + curr_capacity;
         END LOOP;
-        INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target_number_registrations, targer_num_registration, fees, eid);
+        INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target_number_registrations, targer_number_registrations, fees, eid);
     COMMIT;
 END;
 $$ LANGUAGE plpgsql;
