@@ -101,9 +101,9 @@ INSERT INTO Rooms VALUES (20, 'LT 3, Da Bendan Building', 80);
 INSERT INTO Course_areas VALUES ('Computer Science', 6);
 INSERT INTO Course_areas VALUES ('Law', 6);
 INSERT INTO Course_areas VALUES ('Social Sciences', 6);
-INSERT INTO Course_areas VALUES ('Maths', 7);
-INSERT INTO Course_areas VALUES ('Chemistry', 7);
-INSERT INTO Course_areas VALUES ('Physics', 7);
+INSERT INTO Course_areas VALUES ('Maths', 6);
+INSERT INTO Course_areas VALUES ('Chemistry', 6);
+INSERT INTO Course_areas VALUES ('Physics', 8);
 INSERT INTO Course_areas VALUES ('English Language', 8);
 INSERT INTO Course_areas VALUES ('Medicine', 8);
 
