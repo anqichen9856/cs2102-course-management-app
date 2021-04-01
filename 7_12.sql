@@ -8,7 +8,7 @@ DECLARE
     curr_hour INT;
     r_instructor RECORD;
     r_day RECORD;
-    curs_instructor CURSOR FOR (SELECT Employees.eid, Employees.name, area FROM Instructors NATURAL JOIN Employees NATURAL JOIN Specializes ORDER BY eid);
+    curs_instructor CURSOR FOR (SELECT Employees.eid, Employees.name, area, depart_date FROM Instructors NATURAL JOIN Employees NATURAL JOIN Specializes ORDER BY eid);
     curs_day CURSOR FOR (SELECT d.as_of_date::DATE FROM GENERATE_SERIES(start_date - '1 day'::INTERVAL, end_date, '1 day'::INTERVAL) d (as_of_date));
     total_hours_that_month INT;
     d INT;
@@ -43,24 +43,27 @@ BEGIN
                 day := r_day.as_of_date::DATE;
                 hours_array := '{}';
                 curr_hour := 9;
-                LOOP
-                    EXIT WHEN curr_hour >= 18;
-                    IF (curr_hour <= 12 OR curr_hour >= 14)
-                    AND NOT EXISTS (
-                        SELECT 1
-                        FROM Sessions S
-                        WHERE S.date = day
-                        AND S.eid = r_instructor.eid
-                        AND ((curr_hour = S.start_time) 
-							 	OR (S.start_time > curr_hour AND S.start_time < curr_hour + 1) 
-							 	OR (curr_hour > S.start_time AND curr_hour < S.end_time))
-                    ) 
-                    THEN hours_array := hours_array || curr_hour;
-                    END IF;
-                    curr_hour := curr_hour + 1;
-                END LOOP;
-                available_hours := hours_array;
-                RETURN NEXT;
+                IF (r_instructor.depart_date IS NULL OR r_instructor.depart_date >= end_date)
+                THEN 
+                    LOOP
+                        EXIT WHEN curr_hour >= 18;
+                        IF (curr_hour <= 12 OR curr_hour >= 14)
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM Sessions S
+                            WHERE S.date = day
+                            AND S.eid = r_instructor.eid
+                            AND ((curr_hour = S.start_time) 
+                                    OR (S.start_time > curr_hour AND S.start_time < curr_hour + 1) 
+                                    OR (curr_hour > S.start_time AND curr_hour < S.end_time))
+                        ) 
+                        THEN hours_array := hours_array || curr_hour;
+                        END IF;
+                        curr_hour := curr_hour + 1;
+                    END LOOP;
+                    available_hours := hours_array;
+                    RETURN NEXT;
+                END IF;
             END LOOP;
         END IF;
     END LOOP;
@@ -165,39 +168,40 @@ DECLARE
     curr_capacity INT;
     sid INT := 0;
     instructor_id INT;
+	m TEXT[];
+	seating_capacity INT;
 BEGIN
-    BEGIN TRANSACTION;
-        FOREACH m SLICE 1 IN ARRAY session_info
-        LOOP
-            date := m[1]::DATE;
-            start_hour := m[2]::NUMERIC;
-            curr_rid := m[3]::INT;
-            IF NOT EXISTS (
-                SELECT 1 FROM find_instructors(cid, date, start_hour);
-            )
-            THEN 
-                RAISE EXCEPTION 'No available instructor for session on %, start hour %, rid %', date, start_hour, rid;
-            END IF;
+    FOREACH m SLICE 1 IN ARRAY session_info
+    LOOP
+        date := m[1]::DATE;
+        start_hour := m[2]::NUMERIC;
+        curr_rid := m[3]::INT;
+        IF NOT EXISTS (
+            SELECT 1 FROM find_instructors(cid, date, start_hour)
+        )
+        THEN 
+            RAISE EXCEPTION 'No available instructor for session on %, start hour %, rid %', date, start_hour, rid;
+        END IF;
 
-            -- insert into sessions table
-            -- choose a random instructor from the list? 
-            sid := sid + 1;
-            SELECT MIN(eid) INTO instructor_id FROM find_instructors(cid, date, start_hour);
-            add_session(cid, launch_date, sid, date, start_hour, instructor_id, rid);
-            
-            IF date < start_date 
-            THEN start_date := date;
-            END IF;
-            
-            IF date > end_date
-            THEN end_date := date;
-            END IF;
+        -- insert into sessions table
+        -- choose a random instructor from the list? 
+        --sid := sid + 1;
+        --SELECT MIN(eid) INTO instructor_id FROM find_instructors(cid, date, start_hour);
+        --add_session(cid, launch_date, sid, date, start_hour, instructor_id, rid);
+        
+        IF date < start_date 
+        THEN start_date := date;
+        END IF;
+        
+        IF date > end_date
+        THEN end_date := date;
+        END IF;
 
-            SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = curr_rid;
-            target_number_registrations := target_number_registrations + curr_capacity;
-        END LOOP;
-        INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target_number_registrations, targer_number_registrations, fees, eid);
-    COMMIT;
+        SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = curr_rid;
+        target_number_registrations := target_number_registrations + curr_capacity;
+    END LOOP;
+	seating_capacity := target_number_registrations;
+    INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target_number_registrations, seating_capacity, fees, eid);
 END;
 $$ LANGUAGE plpgsql;
 
