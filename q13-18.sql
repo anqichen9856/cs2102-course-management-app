@@ -176,6 +176,7 @@ SELECT O.card_number INTO cardNumber
 FROM Owns O
 WHERE O.cust_id = custId AND EXISTS (SELECT 1 FROM Credit_cards C WHERE C.number = O.card_number AND C.expiry_date > CURRENT_DATE);
 INSERT INTO Registers VALUES(cardNumber, courseId, launchDate, sessionNumber, CURRENT_DATE);
+RAISE NOTICE 'The session successfully bought by customer %', custId;
 END IF;
 --end inner if
 
