@@ -28,48 +28,68 @@ $$ LANGUAGE plpgsql;
                  
 --15 retrieve all the available course offerings that could be ----registered.                  
 CREATE OR REPLACE FUNCTION get_available_course_offerings()
-RETURNS TABLE(title TEXT, course_area TEXT, start_date DATE, end_date DATE, registration_deadline DATE, fees NUMERIC, num_remaining_seats INT) AS $$
-                 
-    SELECT title, course_area, start_date, end_date, registration_deadline, fees,  (seating_capacity-count_registers-count_redeems) AS num_remaining_seats               
-    FROM (
-      SELECT title, course_area, start_date, end_date, registration_deadline, fees, seating_capacity,
-          COALESCE (count1, 0) AS count_registers,
-          COALESCE (count2, 0) AS count_redeems
-       FROM Courses
-       NATURAL JOIN Offerings
-       NATURAL LEFT OUTER JOIN(SELECT course_id, launch_date, count(*) AS count1 FROM Registers GROUP BY course_id, launch_date)
-       NATURAL LEFT OUTER JOIN(SELECT course_id, launch_date, count(*) AS count2 FROM Redeems GROUP BY course_id, launch_date)
-        )
-    WHERE registration_deadline >= CURRENT_DATE AND (count_registers+ count_redeems)< seating_capacity  
-    ORDER BY registration_deadline, title;                 
+RETURNS TABLE(title TEXT, course_area TEXT, start_date DATE, end_date DATE, registration_deadline DATE, fees NUMERIC, num_remaining_seats INT) 
+AS $$
+SELECT title, course_area, start_date, end_date, registration_deadline, fees, 
+(seating_capacity-count_registers-count_redeems) AS num_remaining_seats               
+FROM (
+  SELECT title, course_area, start_date, end_date, registration_deadline, fees, seating_capacity
+  , COALESCE (count1, 0) AS count_registers
+  , COALESCE (count2, 0) AS count_redeems
+  FROM Courses
+  NATURAL JOIN Offerings
+  NATURAL LEFT OUTER JOIN(SELECT course_id, launch_date, count(*) AS count1 FROM Registers GROUP BY course_id, launch_date)
+  NATURAL LEFT OUTER JOIN(SELECT course_id, launch_date, count(*) AS count2 FROM Redeems GROUP BY course_id, launch_date)
+  )
+WHERE registration_deadline >= CURRENT_DATE AND (count_registers+ count_redeems)< seating_capacity  
+ORDER BY registration_deadline, title;                 
                           
 $$ LANGUAGE plpgsql;                 
                  
 --16                
 CREATE OR REPLACE FUNCTION get_available_course_sessions(courseId INT, launchDate DATE)
-RETURNS TABLE(session_date DATE, start_time TIME, instructor_name TEXT, num_remaining_seats INTEGER) AS $$      
+RETURNS TABLE(session_date DATE, start_time TIME, instructor_name TEXT, num_remaining_seats INTEGER) 
+AS $$      
 SELECT session_date, start_time, instructor_name, (seating_capacity-count_registers-count_redeems) AS num_remaining_seats
 FROM ( 
-  SELECT session_date DATE, start_time TIME, instructor_name TEXT, seating_capacity INTEGER, COALESCE (count1, 0) AS count_registers,
-          COALESCE (count2, 0) AS count_redeems
+  SELECT session_date DATE, start_time TIME, instructor_name TEXT, seating_capacity INTEGER
+  , COALESCE (count1, 0) AS count_registers
+  , COALESCE (count2, 0) AS count_redeems
   FROM Sessions
   NATURAL JOIN Rooms                 
-  NATURAL LEFT OUTER JOIN (SELECT course_id, launch_date, sid, count(*) AS count1 FROM Registers GROUP BY course_id, launch_date, sid)
-  NATURAL LEFT OUTER JOIN (SELECT course_id, launch_date, sid, count(*) AS count2 FROM Redeems GROUP BY course_id, launch_date, sid)
+  NATURAL LEFT OUTER JOIN (
+    SELECT course_id, launch_date, sid, count(*) AS count1 
+    FROM Registers 
+    GROUP BY course_id, launch_date, sid
+    )
+  NATURAL LEFT OUTER JOIN (
+    SELECT course_id, launch_date, sid, count(*) AS count2 
+    FROM Redeems 
+    GROUP BY course_id, launch_date, sid
+    )
   WHERE course_id = courseId AND launch_date = launchDate
 )                                                                   
 WHERE count_registers+count_redeems < seating_capacity
 ORDER BY session_date, start_time;  
 $$ LANGUAGE plpgsql; 
-                 
-                 
+                                
                  
 --17either update Registers or Redeems                 
-CREATE OR REPLACE FUNCTION register_session(cust_id INT, course_id, session number, and payment method (credit card or redemption from active package))               
-                                                                                                        
---18
+CREATE OR REPLACE FUNCTION register_session(cust_id INT, course_id, session_number, and payment method (credit card or redemption from active package))
+AS $$               
+$$ LANGUAGE plpgsql;
+
+--18 search through registers and redeems 
 CREATE OR REPLACE FUNCTION get_my_registrations(cust_id INT)
-RETURNS TABLE(title TEXT, fees, session_date DATE, start_time TIME, duration TIME, instructor_name TEXT) AS $$
+RETURNS TABLE(title TEXT, fees, session_date DATE, start_time TIME, duration TIME, instructor_name TEXT) 
+AS $$
+--check date 
+WITH date_checked AS (
+  SELECT title, fees, session_date, start_time, duration , instructor_name 
+  FROM 
+  WHERE
+)
+--check ifCanceled 
 SELECT title, fees, session_date, start_time, duration , instructor_name 
 FROM 
 WHERE  
