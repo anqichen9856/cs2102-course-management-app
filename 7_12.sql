@@ -285,31 +285,34 @@ RETURNS TABLE (course_id INT, course_title TEXT, course_area TEXT, num_offerings
 DECLARE
     curs CURSOR FOR (
         WITH W AS (
-            SELECT C.course_id, C.course_title, C.course_area, O.launch_date, 
+            SELECT C.course_id, C.title, C.course_area, O.launch_date
             FROM Courses C LEFT OUTER JOIN Offerings O on C.course_id = O.course_id
             WHERE EXTRACT(YEAR FROM O.start_date) = EXTRACT(YEAR FROM CURRENT_DATE)
-            GROUP BY C.course_id
-            HAVING count(O.launch_date) >= 2
+            AND (
+				SELECT count(O1.launch_date) > 2
+				FROM Offerings O1
+				WHERE C.course_id = O1.course_id
+			)
         ),
         X AS (
-            SELECT course_id, launch_date, count(*) AS registers_count
-            FROM Registers
-            GROUP BY course_id, launch_date
+            SELECT R.course_id, R.launch_date, count(*) AS registers_count
+            FROM Registers R
+            GROUP BY R.course_id, R.launch_date
         ),
         Y AS (
-            SELECT course_id, launch_date, count(*) AS redeems_count
-            FROM Redeems
-            GROUP BY course_id, launch_date
+            SELECT R1.course_id, R1.launch_date, count(*) AS redeems_count
+            FROM Redeems R1
+            GROUP BY R1.course_id, R1.launch_date
         ),
         Z AS (
-            SELECT course_id, launch_date, count(*) AS cancels_count
-            FROM Cancels
-            GROUP BY course_id, launch_date
+            SELECT C1.course_id, C1.launch_date, count(*) AS cancels_count
+            FROM Cancels C1
+            GROUP BY C1.course_id, C1.launch_date
         )
-        SELECT W.course_id, W.course_title, W.course_area, W.launch_date, COALESCE(X.registers_count, 0) + COALESCE(Y.redeems_count, 0) - COALESCE(Z.cancels_count, 0) AS num_registerations
+        SELECT W.course_id, W.title, W.course_area, W.launch_date, COALESCE(X.registers_count, 0) + COALESCE(Y.redeems_count, 0) - COALESCE(Z.cancels_count, 0) AS num_registerations
         FROM W LEFT OUTER JOIN X ON (W.course_id = X.course_id AND W.launch_date = X.launch_date) 
                 LEFT OUTER JOIN Y ON (W.course_id = Y.course_id AND W.launch_date = Y.launch_date)
-                LEFT OUT JOIN Z ON (W.course_id = Z.course_id AND W.launch_date = Z.launch_date)
+                LEFT OUTER JOIN Z ON (W.course_id = Z.course_id AND W.launch_date = Z.launch_date)
         ORDER BY W.course_id, W.launch_date
     );
     curr_r RECORD; 
@@ -328,16 +331,16 @@ BEGIN
         IF prev_r.course_id = curr_r.course_id AND prev_r.num_registerations >= curr_r.num_registerations
         THEN
             is_popular := 0;
-        ELSE IF prev_r.course_id <> curr_r.cour_id AND is_popular = 1 
+        ELSIF prev_r.course_id <> curr_r.course_id AND is_popular = 1 
         THEN 
             course_id := prev_r.course_id;
-            course_title := prev_r.course_title;
+            course_title := prev_r.title;
             course_area := prev_r.course_area;
             num_offerings := num;
             num_latest_registrations := prev_r.num_registerations;
             RETURN NEXT;
             num := 1;
-        ELSE IF prev_r.course_id <> curr_r.cour_id AND is_popular = 0
+        ELSIF prev_r.course_id <> curr_r.course_id AND is_popular = 0
         THEN 
             is_popular := 1;
             num := 1;
@@ -346,6 +349,15 @@ BEGIN
         END IF;     
         prev_r := curr_r;
     END LOOP;
+	IF is_popular = 1
+	THEN
+		course_id := prev_r.course_id;
+        course_title := prev_r.title;
+        course_area := prev_r.course_area;
+        num_offerings := num;
+        num_latest_registrations := prev_r.num_registerations;
+        RETURN NEXT;
+	END IF;
     CLOSE curs;
 END;
 $$ LANGUAGE plpgsql;
