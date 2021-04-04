@@ -154,9 +154,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 10
+-- 10 TODO: check with add_session
 -- course offering id: cid + launch date
-CREATE OR REPLACE PROCEDURE add_course_offering(cid INT, fees NUMERIC, launch_date DATE, registration_deadline DATE, eid INT, session_info TEXT[][])
+CREATE OR REPLACE PROCEDURE add_course_offering(cid INT, fees NUMERIC, launch_date DATE, registration_deadline DATE, target_num_registeration INT, eid INT, session_info TEXT[][])
 AS $$
 DECLARE
     date DATE;
@@ -164,12 +164,11 @@ DECLARE
     curr_rid INT;
     start_date DATE := session_info[1][1];
     end_date DATE := session_info[1][1];
-    target_number_registrations INT := -1;
+    seating_capacity INT := 0;
     curr_capacity INT;
     sid INT := 0;
     instructor_id INT;
 	m TEXT[];
-	seating_capacity INT;
 BEGIN
     FOREACH m SLICE 1 IN ARRAY session_info
     LOOP
@@ -197,10 +196,10 @@ BEGIN
         THEN end_date := date;
         END IF;
 
+        -- if rid fails foreign key constraint, the adding will fail at add_session step. 
         SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = curr_rid;
-        target_number_registrations := target_number_registrations + curr_capacity;
+        seating_capacity := seating_capacity + curr_capacity;
     END LOOP;
-	seating_capacity := target_number_registrations;
     INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target_number_registrations, seating_capacity, fees, eid);
 END;
 $$ LANGUAGE plpgsql;
@@ -240,6 +239,124 @@ BEGIN
             RETURN NEXT;
         END IF;
     END LOOP;
+    CLOSE curs;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 27
+-- MORE TEST CASES NEEDED
+-- only check sale_start date? not buys date? 
+CREATE OR REPLACE FUNCTION top_packages(n INT)
+RETURNS TABLE (package_id INT, num_free_registrations INT, price NUMERIC, sale_start_date DATE, sale_end_date DATE, num_sold INT) AS $$
+DECLARE
+    curs CURSOR FOR (
+		SELECT C.package_id, C.num_free_registrations, C.price, C.sale_start_date, C.sale_end_date, count(B.date) AS num_sold
+		FROM Course_packages C LEFT OUTER JOIN Buys B ON C.package_id = B.package_id
+		WHERE EXTRACT(YEAR FROM C.sale_start_date) = EXTRACT(YEAR FROM CURRENT_DATE)
+		GROUP BY C.package_id
+		ORDER BY num_sold DESC, price DESC
+    );
+    r RECORD; 
+    curr_idx INT := 1;
+    prev_num_sold INT := -1;
+BEGIN
+    OPEN curs;
+    LOOP
+        FETCH curs INTO r;
+        EXIT WHEN NOT FOUND OR (curr_idx > n AND prev_num_sold <> r.num_sold);
+        package_id := r.package_id;
+        num_free_registrations := r.num_free_registrations;
+        price := r.price;
+        sale_start_date := r.sale_start_date;
+        sale_end_date := r.sale_end_date;
+        num_sold := r.num_sold;
+        RETURN NEXT;
+        curr_idx := curr_idx + 1;
+        prev_num_sold := r.num_sold;
+    END LOOP;
+    CLOSE curs;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 28
+-- number of registration: redeems + registers - cancels
+CREATE OR REPLACE FUNCTION popular_courses()
+RETURNS TABLE (course_id INT, course_title TEXT, course_area TEXT, num_offerings INT, num_latest_registrations INT) AS $$
+DECLARE
+    curs CURSOR FOR (
+        WITH W AS (
+            SELECT C.course_id, C.title, C.course_area, O.launch_date
+            FROM Courses C LEFT OUTER JOIN Offerings O on C.course_id = O.course_id
+            WHERE EXTRACT(YEAR FROM O.start_date) = EXTRACT(YEAR FROM CURRENT_DATE)
+            AND (
+				SELECT count(O1.launch_date) > 2
+				FROM Offerings O1
+				WHERE C.course_id = O1.course_id
+			)
+        ),
+        X AS (
+            SELECT R.course_id, R.launch_date, count(*) AS registers_count
+            FROM Registers R
+            GROUP BY R.course_id, R.launch_date
+        ),
+        Y AS (
+            SELECT R1.course_id, R1.launch_date, count(*) AS redeems_count
+            FROM Redeems R1
+            GROUP BY R1.course_id, R1.launch_date
+        ),
+        Z AS (
+            SELECT C1.course_id, C1.launch_date, count(*) AS cancels_count
+            FROM Cancels C1
+            GROUP BY C1.course_id, C1.launch_date
+        )
+        SELECT W.course_id, W.title, W.course_area, W.launch_date, COALESCE(X.registers_count, 0) + COALESCE(Y.redeems_count, 0) - COALESCE(Z.cancels_count, 0) AS num_registerations
+        FROM W LEFT OUTER JOIN X ON (W.course_id = X.course_id AND W.launch_date = X.launch_date) 
+                LEFT OUTER JOIN Y ON (W.course_id = Y.course_id AND W.launch_date = Y.launch_date)
+                LEFT OUTER JOIN Z ON (W.course_id = Z.course_id AND W.launch_date = Z.launch_date)
+        ORDER BY W.course_id, W.launch_date
+    );
+    curr_r RECORD; 
+    prev_r RECORD;
+    num INT := 1;
+    is_popular INT := 1;
+BEGIN
+    OPEN curs;
+    -- fetch the first record
+    FETCH curs INTO prev_r;
+    LOOP
+        -- starts with the second record
+        FETCH curs INTO curr_r;
+        EXIT WHEN NOT FOUND;
+        IF prev_r.course_id = curr_r.course_id AND prev_r.num_registerations >= curr_r.num_registerations
+        THEN
+            is_popular := 0;
+        ELSIF prev_r.course_id <> curr_r.course_id AND is_popular = 1 
+        THEN 
+            course_id := prev_r.course_id;
+            course_title := prev_r.title;
+            course_area := prev_r.course_area;
+            num_offerings := num;
+            num_latest_registrations := prev_r.num_registerations;
+            RETURN NEXT;
+            num := 1;
+        ELSIF prev_r.course_id <> curr_r.course_id AND is_popular = 0
+        THEN 
+            is_popular := 1;
+            num := 1;
+        ELSE
+            num := num + 1;
+        END IF;     
+        prev_r := curr_r;
+    END LOOP;
+	IF is_popular = 1
+	THEN
+		course_id := prev_r.course_id;
+        course_title := prev_r.title;
+        course_area := prev_r.course_area;
+        num_offerings := num;
+        num_latest_registrations := prev_r.num_registerations;
+        RETURN NEXT;
+	END IF;
     CLOSE curs;
 END;
 $$ LANGUAGE plpgsql;
