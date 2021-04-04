@@ -1,34 +1,20 @@
--- TEST [query with default data] RETURN [expected result]
-
---13 
+--13 with TRIGGER buy_package_trigger
 CREATE OR REPLACE PROCEDURE buy_course_package (custId INT,packageId INT)
 AS $$
 DECLARE
 n INTEGER;
 cardNumber TEXT;
 BEGIN
-IF EXISTS(
-  SELECT 1
-  FROM Buys 
-  WHERE 
-) THEN
-RAISE EXCEPTION 'Mutiple purchases of the same package % by customer % on the same day % is not allowed', packageId, custId, CURRENT_DATE;
+IF NOT EXISTS (SELECT 1 FROM Customers WHERE Customers.cust_id = custId) THEN
+RAISE EXCEPTION 'Customer ID % is not valid', custId;
 END IF;
-
-IF EXISTS (SELECT 1 FROM Owns O WHERE O.cust_id = custId
-      AND EXISTS (SELECT 1 FROM Credit_cards C WHERE 
-        C.number = O.card_number AND 
-        C.expiry_date >= CURRENT_DATE)
-      AND EXISTS (SELECT 1 FROM Course_packages P WHERE 
-        P.package_id = packageId AND P.sale_start_date <= CURRENT_DATE
-        AND P.sale_end_date >= CURRENT_DATE)) THEN 
+IF NOT EXISTS (SELECT 1 FROM Course_packages WHERE Course_packages.package_id = packageId) THEN
+RAISE EXCEPTION 'Package ID % is not valid', packageId;
+END IF;
 SELECT num_free_registrations FROM Course_packages P WHERE P.package_id = packageId INTO n; 
 SELECT card_number FROM Owns O WHERE O.cust_id = custId ORDER BY O.from_date LIMIT 1 INTO cardNumber;
-
 INSERT INTO Buys VALUES (packageId, cardNumber, CURRENT_DATE, n);
 RAISE NOTICE 'The purchase of package % by customer % on % is successful', packageId, custId, CURRENT_DATE;
-ELSE
-RAISE EXCEPTION 'The purchase of package % by customer % on % is invalid', packageId, custId, CURRENT_DATE;
 END IF;
 END;                
 $$ LANGUAGE plpgsql;
@@ -73,15 +59,11 @@ FROM(
 ) AS PKG;
 END;             
 $$ LANGUAGE plpgsql;
-select * FROM get_my_course_package(5);
-select * from buys;
-
 --select * FROM get_my_course_package(5);
+--select * from buys;
 --select * from redeems;
 
---SELECT * FROM BUYS;
---TEST SELECT * FROM get_my_course_package(1)
-                 
+
 --15 retrieve all the available course offerings that could be registered.                  
 CREATE OR REPLACE FUNCTION get_available_course_offerings()
 RETURNS TABLE(course_title TEXT, course_area TEXT, start_date DATE, end_date DATE, registration_deadline DATE, course_fees NUMERIC, num_remaining_seats INT) 
@@ -132,10 +114,11 @@ WHERE count_registers + count_redeems - count_cancels < seating_capacity
 ORDER BY session_date, start_time;
 END;
 $$ LANGUAGE plpgsql; 
---TEST select * from get_available_course_sessions(2, '2022-09-01') RETURN error message'Course Offering...is invalid' 
---TEST select * from get_available_course_sessions(1, '2020-09-01') RETURN error message'Registration deadline...is passed'
---TEST select * from get_available_course_sessions(1, '2020-09-01') RETURN an empty table
---TEST select * from get_available_course_sessions(7, '2021-03-30') RETURN 3 rows                             
+--select * from get_available_course_sessions(2, '2022-09-01') RETURN error message'Course Offering...is invalid' 
+--select * from get_available_course_sessions(1, '2020-09-01') RETURN error message'Registration deadline...is passed'
+--select * from get_available_course_sessions(1, '2020-09-01') RETURN an empty table
+--select * from get_available_course_sessions(7, '2021-03-30') RETURN 3 rows   
+
                  
 --17 either update Registers or Redeems--check if available session--check if payment method is correct         
 --(0 for credit card or 1 for redemption from active package)       
@@ -248,6 +231,7 @@ $$ LANGUAGE plpgsql;
 --TEST register_session(1, 7, '2021-03-30', 1, 0)
 --call register_session(1, 7, '2021-03-30', 1, 0); select * from registers
 
+
 --18 search through registers and redeems 
 CREATE OR REPLACE FUNCTION get_my_registrations(custId INT)
 RETURNS TABLE(course_title TEXT, fees NUMERIC, session_date DATE, start_time NUMERIC, duration NUMERIC, instructor_name TEXT) 
@@ -299,6 +283,7 @@ ORDER BY course_sessions.session_date, course_sessions.start_time;
 END;
 $$ LANGUAGE plpgsql;
 --TEST select * from get_my_registrations(1)
+
 
 --29 view_summary_report of n months
 --look through Pay_slips, Buys, Registers, Redeems, Cancels
