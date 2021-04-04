@@ -327,7 +327,6 @@ BEGIN
         -- starts with the second record
         FETCH curs INTO curr_r;
         EXIT WHEN NOT FOUND;
-        -- new cid, reset all values
         IF prev_r.course_id = curr_r.course_id AND prev_r.num_registerations >= curr_r.num_registerations
         THEN
             is_popular := 0;
