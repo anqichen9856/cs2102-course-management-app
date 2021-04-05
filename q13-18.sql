@@ -15,7 +15,6 @@ SELECT num_free_registrations FROM Course_packages P WHERE P.package_id = packag
 SELECT card_number FROM Owns O WHERE O.cust_id = custId ORDER BY O.from_date LIMIT 1 INTO cardNumber;
 INSERT INTO Buys VALUES (packageId, cardNumber, CURRENT_DATE, n);
 RAISE NOTICE 'The purchase of package % by customer % on % is successful', packageId, custId, CURRENT_DATE;
-END IF;
 END;                
 $$ LANGUAGE plpgsql;
 -- CALL buy_course_package(1,1);
@@ -125,111 +124,43 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE PROCEDURE register_session(custId INT, courseId INT, launchDate DATE, sessionNumber INT, paymentMethod INT)
 AS $$
 DECLARE
-count_redeems INT;
-count_registers INT;
-count_cancels INT;
-count_registration INT;
-capacity INT;
-redeemRemaining INT;
 packageId INT;
 cardNumber TEXT;
 buyDate DATE;
-ifRegistered INT;
 
 BEGIN
 IF NOT EXISTS (SELECT 1 FROM Customers WHERE Customers.cust_id = custId) THEN
 RAISE EXCEPTION 'Customer ID % is not valid', custId;
 END IF;
-IF NOT EXISTS (SELECT 1 FROM Offerings WHERE course_id = courseId AND launch_date = launchDate) THEN
-RAISE EXCEPTION 'Course Offering of % launched on % is invalid', courseId, launchDate;
-END IF;
-IF NOT EXISTS (SELECT 1 FROM Offerings WHERE course_id = courseId AND launch_date = launchDate AND registration_deadline >= CURRENT_DATE) THEN
-RAISE EXCEPTION 'Registration deadline for course Offering of % launched on % is passed', courseId, launchDate; 
+IF NOT EXISTS (SELECT 1 FROM Sessions WHERE course_id = courseId AND launch_date = launchDate AND sid = sessionNumber) THEN
+RAISE EXCEPTION 'The session % of course offering of % launched on % is invalid', sessionNumber, courseId, launchDate;  
 END IF;
 IF paymentMethod != 0 AND paymentMethod != 1 THEN
 RAISE EXCEPTION 'Payment method must be either INTEGER 0 or 1, which represent using credit card or redemption from active package respectively';
 END IF;
---check ifRegistered 
---As stated in project description, a customer can register for at most one session for a course, thus registered session can only be 0 or 1
-SELECT count(*) INTO ifRegistered FROM Redeems R 
-WHERE R.course_id = courseId
-AND EXISTS (SELECT 1 FROM Owns O WHERE O.card_number = R.card_number AND O.cust_id = custId);
-
-SELECT ifRegistered + count(*) INTO ifRegistered FROM Registers R 
-WHERE R.course_id = courseId
-AND EXISTS (SELECT 1 FROM Owns O WHERE O.card_number = R.card_number AND O.cust_id = custId);
-
-SELECT  ifRegistered - count(*) INTO ifRegistered FROM Cancels C
-WHERE C.course_id = courseId AND cust_id = custId;
-IF ifRegistered = 1 THEN 
-RAISE EXCEPTION 'Course % has been registered by customer %, another registration is not allowed', courseId, custId;
-END IF; 
-
---check ifFullyBooked
-SELECT count(*) INTO count_redeems FROM Redeems R 
-WHERE R.course_id = courseId AND R.launch_date = launchDate AND R.sid = sessionNumber;
-
-SELECT count(*) INTO count_registers FROM Registers R 
-WHERE R.course_id = courseId AND R.launch_date = launchDate AND R.sid = sessionNumber;
-
-SELECT count(*) INTO count_cancels FROM Cancels C
-WHERE C.course_id = courseId AND C.launch_date = launchDate AND C.sid = sessionNumber;
-
-count_registration := count_redeems + count_registers - count_cancels;
-
-SELECT seating_capacity INTO capacity
-FROM Rooms 
-WHERE Rooms.rid = (SELECT rid FROM Sessions S WHERE S.course_id = courseId AND S.launch_date = launchDate AND S.sid = sessionNumber);
-
-IF capacity <= count_registration THEN
-RAISE EXCEPTION 'The session % of course offering of % launched % is fully booked', sessionNumber, courseId, launchDate;
-END IF;
 
 --start check payment method
 IF paymentMethod = 1 THEN 
-
---start inner if
-IF NOT EXISTS (
-  SELECT 1
-  FROM Buys B
-  WHERE EXISTS (SELECT 1 FROM Owns O WHERE O.cust_id = custId AND O.card_number = B.card_number)  
-  AND B.num_remaining_redemptions > 0
-) THEN RAISE EXCEPTION 'There is no active package, so the session cannot be redeemed';
+    SELECT B.package_id, B.card_number, B.date INTO packageId, cardNumber, buyDate
+    FROM Buys B
+    WHERE EXISTS (SELECT 1 FROM Owns O WHERE O.cust_id = custId AND O.card_number = B.card_number)
+    AND B.num_remaining_redemptions >= 1
+    ORDER BY B.num_remaining_redemptions LIMIT 1;
+    INSERT INTO Redeems VALUES(packageId, cardNumber, buyDate, courseId, launchDate, sessionNumber, CURRENT_DATE);
+    RAISE NOTICE 'The session successfully redeemed with package %', packageId;
 ELSE 
-  SELECT max(B.num_remaining_redemptions) AS remaining, B.package_id, B.card_number, B.date INTO redeemRemaining, packageId, cardNumber, buyDate
-  FROM Buys B
-  WHERE EXISTS (SELECT 1 FROM Owns O WHERE O.cust_id = custId AND O.card_number = B.card_number)
-  AND B.num_remaining_redemptions > 0;
-  redeemRemaining := redeemRemaining - 1;
-  UPDATE Buys SET num_remaining_redemptions = num_remaining_redemptions - 1 WHERE package_id = packageId AND card_number = cardNumber AND date = buyDate;
-  INSERT INTO Redeems VALUES(packageId, cardNumber, buyDate, courseId, launchDate, sessionNumber, CURRENT_DATE);
-  RAISE NOTICE 'The session successfully redeemed with package %', packageId;
-END IF;
---end inner if 
-
-ELSE 
-
---start inner if
-IF NOT EXISTS (
-  SELECT 1 
-  FROM Owns O
-  WHERE O.cust_id = custId AND EXISTS (SELECT 1 FROM Credit_cards C WHERE C.number = O.card_number AND C.expiry_date > CURRENT_DATE)
-) THEN RAISE EXCEPTION 'The credit card is expired';
-ELSE 
-SELECT O.card_number INTO cardNumber 
-FROM Owns O
-WHERE O.cust_id = custId AND EXISTS (SELECT 1 FROM Credit_cards C WHERE C.number = O.card_number AND C.expiry_date > CURRENT_DATE);
-INSERT INTO Registers VALUES(cardNumber, courseId, launchDate, sessionNumber, CURRENT_DATE);
-RAISE NOTICE 'The session successfully bought by customer %', custId;
-END IF;
---end inner if
-
+    SELECT O.card_number INTO cardNumber 
+    FROM Owns O
+    WHERE O.cust_id = custId AND EXISTS (SELECT 1 FROM Credit_cards C WHERE C.number = O.card_number AND C.expiry_date >= CURRENT_DATE)
+    ORDER BY O.from_date DESC
+    LIMIT 1;
+    INSERT INTO Registers VALUES(cardNumber, courseId, launchDate, sessionNumber, CURRENT_DATE);
+    RAISE NOTICE 'The session successfully bought by customer %', custId;
 END IF;
 --end check payment method
 END;
 $$ LANGUAGE plpgsql;
---TEST register_session(1, 7, '2021-03-30', 1, 0)
---call register_session(1, 7, '2021-03-30', 1, 0); select * from registers
+--call register_session(1, 7, '2021-03-30', 1, 0); select * from registers; 
 
 
 --18 search through registers and redeems 
