@@ -69,7 +69,7 @@ CREATE TABLE Pay_slips (
 	eid INTEGER REFERENCES Employees ON DELETE CASCADE,
   	payment_date DATE,
   	amount NUMERIC(10,2) NOT NULL CHECK (amount >= 0),
-  	num_work_hours INTEGER CHECK (num_work_hours >= 0),
+  	num_work_hours NUMERIC(5,2) CHECK (num_work_hours >= 0),
   	num_work_days INTEGER CHECK (num_work_days >= 0),
   	PRIMARY KEY (eid, payment_date)
 );
