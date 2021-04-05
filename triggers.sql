@@ -174,3 +174,28 @@ CREATE CONSTRAINT TRIGGER course_area_manager_trigger
 AFTER INSERT OR UPDATE ON Course_areas
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION course_area_manager_func();
+
+
+CREATE OR REPLACE FUNCTION buy_package_func() RETURNS TRIGGER
+AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM Buys B WHERE B.package_id = NEW.package_id AND B.card_number = NEW.card_number AND B.date = NEW.date) THEN
+        RAISE EXCEPTION 'Mutiple purchases of the same package % by card % on the same day % is not allowed', NEW.package_id , NEW.card_number, NEW.date;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM Owns O WHERE O.card_number = NEW.card_number) THEN
+        RAISE EXCEPTION 'Card number % is invalid', NEW.card_number;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM Credit_cards C WHERE C.number = NEW.card_number AND C.expiry_date >= NEW.date) THEN
+        RAISE EXCEPTION 'Card number % has expired', NEW.card_number;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM Course_packages P WHERE P.package_id = NEW.package_id 
+        AND P.sale_start_date <= NEW.date AND P.sale_end_date >= NEW.date) THEN
+        RAISE EXCEPTION 'Package % is not open to sale on %', NEW.package_id, NEW.date;
+    END IF; 
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER buy_package_trigger
+BEFORE INSERT OR UPDATE ON Buys
+FOR EACH ROW EXECUTE FUNCTION buy_package_func();
