@@ -89,26 +89,32 @@ CALL add_course (
     3
 );
 
-SELECT find_instructors (
+SELECT * FROM find_instructors (
     11,
     '2021-03-31',
     15
 );
 
-SELECT find_instructors (
+SELECT * FROM find_instructors (
     1,
     '2021-03-31',
     15
 );
 
-SELECT find_instructors (
+SELECT * FROM find_instructors (
     2,
     '2021-03-31',
     15
 );
 
-SELECT find_instructors (
+SELECT * FROM find_instructors (
     4,
     '2021-03-31',
     15
 );
+
+DELETE FROM Pay_slips;
+SELECT * FROM pay_salary();
+
+SELECT * FROM promote_courses();
+
