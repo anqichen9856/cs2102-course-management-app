@@ -80,39 +80,13 @@ $$ LANGUAGE plpgsql;
 
 
 -- 20
-
--- check if cancelltion can be made
--- syntax correct
-CREATE OR REPLACE FUNCTION insert_cancel_func() RETURNS TRIGGER
-  AS $$
-  DECLARE
-    registered_session_start DATE;
-
-  BEGIN
-    SELECT date INTO registered_session_start FROM Sessions WHERE cust_id = NEW.cust_id AND launch_date = NEW.launch_date AND sid = NEW.sid;
-    -- check cancelltion is valid
-    IF registered_session_start-7 < CURRENT_DATE THEN
-      RAISE EXCEPTION 'Cancel will be proceed only if cancellation is made at least 7 days before the day of the registered session';
-    END IF;
-    RETURN NEW;
-  END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS insert_cancel_trigger ON Cancels;
-
-CREATE CONSTRAINT TRIGGER insert_cancel_trigger
-AFTER INSERT ON Cancels
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW EXECUTE FUNCTION insert_cancel_func();
-
-
 -- if session is redeemed update Buy after cancelltion
 -- syntax correct
 CREATE OR REPLACE FUNCTION update_buy_func() RETURNS TRIGGER AS $$
   DECLARE
     pid INTEGER; -- new
     num_remaining_before INTEGER;
-    buy INTEGER;
+    buy DATE;
   BEGIN
     -- if the customer must use package to redeem
     IF NEW.package_credit = 1 THEN
@@ -146,25 +120,33 @@ FOR EACH ROW EXECUTE FUNCTION update_buy_func();
 -- 20. cancel_registration: when a customer requests to cancel a registered course session.
 CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, launch DATE) AS $$
   DECLARE
-    sid INTEGER;
+    session INTEGER;
     refund_amt NUMERIC(10,2);
     package_credit INTEGER;
     fee NUMERIC(10,2);
+    registered_session_start DATE;
 
   BEGIN
+    SELECT date INTO registered_session_start FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session;
+    -- check cancelltion is valid
+    IF registered_session_start-7 < CURRENT_DATE THEN
+      RAISE EXCEPTION 'Cancel will be proceed only if cancellation is made at least 7 days before the day of the registered session';
+    END IF;
     -- if regester directly:
     IF inRegister(cust, course, launch) THEN
-      SELECT fees INTO fee FROM Offering WHERE course_id = course AND launch_date = launch;
+      SELECT sid INTO session FROM Registers WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
+      SELECT fees INTO fee FROM Offerings WHERE course_id = course AND launch_date = launch;
       refund_amt := fee * 0.9;
       package_credit := 0;
 
     -- if not regester by directly, must used credit card
     ELSE
+      SELECT sid INTO session FROM Redeems WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
       refund_amt := 0;
       package_credit := 1;
     END IF;
 
-    INSERT INTO Cancels VALUES (cust, course, launch, sid, CURRENT_DATE, refund_amt, package_credit);
+    INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, package_credit);
   END;
 $$ LANGUAGE plpgsql;
 
@@ -187,7 +169,7 @@ AS $$
       -- check if the room is valiable for the session
       -- IF NOT EXISTS(SELECT * FROM find_rooms(NEW.date, NEW.start_time, session_duration) WHERE rid = NEW.rid) THEN
 	    IF (NEW.rid NOT IN (SELECT rid FROM find_rooms(NEW.date, NEW.start_time, session_duration))) THEN
-        RAISE EXCEPTION 'the room is not available, unable to INSERT or UPDATE';
+        RAISE EXCEPTION 'the room is not available, unable to INSERT or UPDATE %' ;
 
       -- check if the instructor can teach this session
       ELSIF (NEW.eid NOT IN (SELECT eid FROM find_instructors (NEW.course_id, NEW.date, NEW.start_time))) THEN
