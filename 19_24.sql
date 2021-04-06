@@ -35,19 +35,19 @@ CREATE OR REPLACE FUNCTION student_in_session(course INTEGER, launch DATE, sessi
     FROM (
         SELECT *
         FROM Redeems R
-        WHERE R.course_id = course AND R.launch_date = launch AND R.sid = ssession
+        WHERE R.course_id = course AND R.launch_date = launch AND R.sid = session
     ) A;
     SELECT count(*) INTO count_registers
     FROM (
         SELECT *
         FROM Registers R
-        WHERE R.course_id = course AND R.launch_date = launch AND R.sid = ssession
+        WHERE R.course_id = course AND R.launch_date = launch AND R.sid = session
     ) B;
     SELECT count(*) INTO count_cancels
     FROM (
         SELECT *
         FROM Cancels C
-        WHERE C.course_id = course AND C.launch_date = launch AND C.sid = ssession
+        WHERE C.course_id = course AND C.launch_date = launch AND C.sid = session
     ) C;
     count_registration := count_redeems + count_registers - count_cancels;
     RETURN count_registration;
@@ -58,23 +58,51 @@ $$ LANGUAGE plpgsql;
 -- 19. update_course_session: a customer requests to change a registered course session to another session.
 -- syntax correct
 CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER, launch DATE, new_sid INTEGER) AS $$
+  DECLARE
+    seat INTEGER;
+    students INTEGER;
+    new_rid INTEGER;
+    new_date DATE;
 
   BEGIN
-    -- check if the new session is available
-    IF new_sid NOT IN (get_available_course_sessions(course_id, launch_date)) THEN
+    -- check if new session exists
+    IF NOT EXISTS (SELECT * FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = new_sid) THEN
       RAISE EXCEPTION 'session is not avaliable';
 
-    ELSIF inRegister(cust, course, launch) THEN
-      -- since a customer can register for at most one of its sessions before its registration deadline
-      -- it is guaranteed that there is only one record for one customer in registers/redeems
-      -- update in Registers
-      UPDATE Registers SET sid = new_sid WHERE card_number IN (SELECT * FROM find_cards(cust)) AND course_id = course AND launch_date = launch;
+
+
     ELSE
-      -- update in Redeems
-      UPDATE Redeems SET sid = new_sid WHERE card_number IN (SELECT * FROM find_cards(cust)) AND course_id = course AND launch_date = launch;
+      SELECT rid, date INTO new_rid, new_date FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = new_sid;
+      students := student_in_session(course, launch, new_sid);
+      SELECT seating_capacity INTO seat FROM Rooms WHERE rid = new_rid;
+      -- check there are seat in the new session: if the number of student in the session exceeds the room capacity
+      IF new_date < CURRENT_DATE THEN
+        RAISE EXCEPTION 'session started';
+      ELSIF (students > seat) THEN
+        RAISE EXCEPTION 'no seat in new session';
+      -- if costommer register directly, the record of that costommer in register
+      ELSIF inRegister(cust, course, launch) THEN
+          -- since a customer can register for at most one of its sessions before its registration deadline
+          -- it is guaranteed that there is only one record for one customer in registers/redeems
+          -- update in Registers
+
+        UPDATE Registers SET sid = new_sid WHERE card_number IN (SELECT * FROM find_cards(cust)) AND course_id = course AND launch_date = launch;
+      ELSE
+        -- update in Redeems
+        UPDATE Redeems SET sid = new_sid WHERE card_number IN (SELECT * FROM find_cards(cust)) AND course_id = course AND launch_date = launch;
+      END IF;
     END IF;
   END;
 $$ LANGUAGE plpgsql;
+-- test 19:
+-- 1 new session is not avaliable
+-- CALL update_course_session (2, 2, DATE '2020-10-05', 2);
+-- 2 new session has no seat
+--
+-- 3 costommer register directly
+--
+-- 4 costommer redeem
+--
 
 
 
@@ -118,6 +146,7 @@ FOR EACH ROW EXECUTE FUNCTION update_buy_func();
 
 -- syntax correct
 -- 20. cancel_registration: when a customer requests to cancel a registered course session.
+-- assume the costommer registered in a session
 CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, launch DATE) AS $$
   DECLARE
     session INTEGER;
@@ -149,6 +178,14 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
     INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, package_credit);
   END;
 $$ LANGUAGE plpgsql;
+
+-- test 20:
+-- 1 check cancelltion is not valid: pass the date
+-- CALL cancel_registration (cust INTEGER, course INTEGER, launch DATE);
+-- 2 costommer register directly
+--
+-- 3 costommer redeem
+--
 
 
 
@@ -194,7 +231,6 @@ DROP TRIGGER IF EXISTS sessions_trigger ON Sessions;
 CREATE CONSTRAINT TRIGGER sessions_trigger
 AFTER INSERT OR UPDATE ON Sessions
 DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW EXECUTE FUNCTION sessions_func();
 
 
 
@@ -237,6 +273,12 @@ AS $$
       WHERE course_id = course AND session_id = sid AND launch_date = launch;
   END;
 $$ LANGUAGE plpgsql;
+-- test 21:
+-- 1 instructor is available
+-- CALL update_instructor (course INTEGER, launch DATE, session_id INTEGER, new_eid INTEGER);
+-- 2 instructor is not available
+--
+
 
 
 -- 22
@@ -260,6 +302,13 @@ AS $$
   END;
 $$ LANGUAGE plpgsql;
 
+-- test 22:
+-- 1 room is available
+-- CALL update_room (course INTEGER, launch DATE, session_id INTEGER, new_rid INTEGER);
+-- 2 room is not available
+--
+
+
 
 
 -- 23.
@@ -280,6 +329,13 @@ AS $$
       WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
   END;
 $$ LANGUAGE plpgsql;
+-- test 23:
+-- 1 offering time changed
+-- CALL remove_session (course INTEGER, launch DATE, session_id INTEGER);
+-- 2 there are student in the session
+--
+-- 3 session started
+--
 
 
 
@@ -302,7 +358,15 @@ AS $$
     END IF;
   END;
 $$ LANGUAGE  plpgsql;
-
+-- test 24:
+-- 1 offering time changed
+-- CALL add_session (course INTEGER, launch DATE, new_sid INTEGER, start_date DATE, start NUMERIC(4,2), instructor INTEGER, room INTEGER);
+-- 2 room not valiable
+--
+-- 3 instructor not valiable
+--
+-- 4 offering not exist
+--
 
 
 
@@ -317,7 +381,6 @@ $$ LANGUAGE  plpgsql;
 -- 5. the course offering title (i.e., course title) that has the *highest total net registration fees* #among all the course offerings that ended this year that are managed by the manager
 
 -- Each manager manages zero or more course areas, and each course area is managed by exactly one manager. Each course offering is managed by the manager of that course area.
-
 
 -- syntax correct
 CREATE OR REPLACE FUNCTION fee_one_offering(course INTEGER, launch DATE, fees NUMERIC(10,2))
@@ -462,3 +525,6 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
     CLOSE curs;
   END;
 $$ LANGUAGE plpgsql;
+
+-- test 24:
+-- 1 view_manager_report()
