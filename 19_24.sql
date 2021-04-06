@@ -176,34 +176,27 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION sessions_func() RETURNS TRIGGER
 AS $$
   DECLARE
-    deadline DATE;
     session_duration NUMERIC(4,2);
 
   BEGIN
     IF NOT EXISTS(SELECT * FROM Offerings WHERE course_id = NEW.course_id AND launch_date = NEW.launch_date) THEN
       RAISE EXCEPTION 'couese offering does not exist, unable to add session';
     ELSE
-      SELECT registration_deadline INTO deadline FROM Offerings WHERE course_id = NEW.course_id AND launch_date = NEW.launch_date;
       SELECT duration INTO session_duration FROM Courses WHERE course_id = NEW.course_id;
 
-      IF deadline < CURRENT_DATE THEN
-        RAISE EXCEPTION 'the course offering’s registration deadline has passed, unable to add session';
-
-      ELSIF NEW.date < CURRENT_DATE THEN
-        RAISE EXCEPTION 'the course session has started, unable to INSERT or UPDATE';
-
       -- check if the room is valiable for the session
-      ELSIF NEW.rid NOT IN (SELECT * FROM find_rooms(NEW.date, NEW.start_time, session_duration)) THEN
+      -- IF NOT EXISTS(SELECT * FROM find_rooms(NEW.date, NEW.start_time, session_duration) WHERE rid = NEW.rid) THEN
+	    IF (NEW.rid NOT IN (SELECT rid FROM find_rooms(NEW.date, NEW.start_time, session_duration))) THEN
         RAISE EXCEPTION 'the room is not available, unable to INSERT or UPDATE';
 
       -- check if the instructor can teach this session
-      ELSIF NEW.eid NOT IN (SELECT eid FROM find_instructors (NEW.course_id, NEW.date, NEW.start_time)) THEN
+      ELSIF (NEW.eid NOT IN (SELECT eid FROM find_instructors (NEW.course_id, NEW.date, NEW.start_time))) THEN
         RAISE EXCEPTION 'instructor not avaliable, unable to INSERT or UPDATE';
 
       ELSE
         -- update Offering
         UPDATE Offerings
-          SET start_date = MIN(start_date, NEW.date), end_date = MAX(end_date, NEW.date)
+          SET start_date = COALESCE(LEAST(start_date, NEW.date)), end_date = COALESCE(GREATEST(end_date, NEW.date))
           WHERE course_id = NEW.course_id AND launch_date = NEW.launch_date;
 
         -- update/insert new value to Sessions
@@ -315,10 +308,16 @@ CREATE OR REPLACE PROCEDURE add_session (course INTEGER, launch DATE, new_sid IN
 AS $$
   DECLARE
     session_duration NUMERIC(4,2);
+    deadline DATE;
   BEGIN
-    SELECT duration INTO session_duration FROM Courses WHERE course_id = course;
-    INSERT INTO Sessions
-      VALUES (course, launch, new_sid, start_date, start, (start+session_duration), instructor, room);
+    IF CURRENT_DATE < deadline THEN
+      RAISE EXCEPTION 'the course offering’s registration deadline has passed, unable to add session';
+    ELSE
+      SELECT registration_deadline INTO deadline FROM Offerings WHERE course_id = NEW.course_id AND launch_date = NEW.launch_date;
+      SELECT duration INTO session_duration FROM Courses WHERE course_id = course;
+      INSERT INTO Sessions
+        VALUES (course, launch, new_sid, start_date, start, (start+session_duration), instructor, room);
+    END IF;
   END;
 $$ LANGUAGE  plpgsql;
 
