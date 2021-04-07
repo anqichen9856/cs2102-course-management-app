@@ -119,6 +119,9 @@ AFTER INSERT OR UPDATE ON Credit_cards
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION credit_card_owns_total_part_con_func();
 
+-- Owns from_date < credit card's expiry_date
+
+
 /* Specializes trigger */
 
 -- TPC for instructors: every instructor must specialize in at least one area
