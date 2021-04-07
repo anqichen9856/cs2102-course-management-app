@@ -202,7 +202,7 @@ BEGIN
             IF EXISTS(
             SELECT 1 FROM Redeems R 
             WHERE R.package_id = packageId AND R.card_number = cardNumber AND R.buy_date = buyDate
-            AND EXISTS (SELECT 1 FROM Sessions S WHERE S.course_id = R.course_id AND S.launch_date = R.launch_date AND S.sid = R.sid AND S.date <= NEW.date - 7)
+            AND EXISTS (SELECT 1 FROM Sessions S WHERE S.course_id = R.course_id AND S.launch_date = R.launch_date AND S.sid = R.sid AND NEW.date <= S.date - 7)
             ) THEN RAISE EXCEPTION 'Customer % has a partially active package %, another package cannot be bought', custId, packageId; 
             END IF;
         ELSE RAISE EXCEPTION 'Customer % has an active package %, another package cannot be bought', custId, packageId;       
