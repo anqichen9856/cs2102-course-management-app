@@ -24,38 +24,69 @@ $$ LANGUAGE plpgsql;
 --14 package name, purchase date, price of package, number of free sessions included in the package, number of sessions that have not been redeemed,
 -- and information for each redeemed session (course name, session date, session start hour)
 CREATE OR REPLACE FUNCTION get_my_course_package (custId INT)
-RETURNS SETOF json AS $$
+RETURNS json AS $$
+DECLARE
+result JSON;
+buyDate Date;
+packageId INT;
+cardNumber TEXT;
+remainingRedem INT;
+hasPackage INT := 0;
 BEGIN
 IF NOT EXISTS (SELECT 1 FROM Customers WHERE Customers.cust_id = custId) THEN
 RAISE EXCEPTION 'Customer ID % is not valid', custId;
 END IF;
-RETURN QUERY WITH Redeemed_sessions AS (
-  SELECT B.package_id, B.card_number, B.date, C.title AS course_name, S.date AS session_date, S.start_time AS session_start_hour
-  FROM Courses C, Sessions S, Redeems R, Buys B
-  WHERE C.course_id = S.course_id AND S.course_id = R.course_id AND S.sid = R.sid AND S.launch_date = R.launch_date
-  AND B.package_id = R.package_id AND B.card_number = R.card_number AND B.date = R.buy_date
-  AND EXISTS (SELECT 1 FROM Owns O WHERE O.cust_id = custId AND O.card_number = R.card_number)
 
-  --not sure if canceled sessions need included or excluded
-  AND NOT EXISTS (SELECT 1 FROM Cancels Cl WHERE Cl.package_credit = 1 AND Cl.course_id = R.course_id AND Cl.launch_date = R.launch_date AND Cl.sid = R.sid AND Cl.date > R.date)
-), Buys_info AS (
-  SELECT B.package_id, B.card_number, B.date, B.num_remaining_redemptions, count(*)
-  FROM Buys B
-  WHERE EXISTS (SELECT 1 FROM Owns O WHERE O.cust_id = custId AND O.card_number = B.card_number)
-  GROUP BY package_id, card_number, date
-  ORDER BY date
-)
-SELECT to_json(PKG) 
-FROM(
-  SELECT P.name AS package_name, B.date AS purchase_date, P.price AS package_price, P.num_free_registrations, B.num_remaining_redemptions
-  , (SELECT json_agg(item)FROM (
-      SELECT course_name, session_date, session_start_hour
-      FROM Redeemed_sessions R WHERE R.package_id = B.package_id AND R.card_number = B.card_number AND R.date = B.date
-      ORDER BY session_date, session_start_hour
-      ) item) AS redeemed_sessions
-  FROM Course_packages P, Buys_info B
-  WHERE B.package_id = P.package_id 
-) AS PKG;
+--check if the customer has an active or partially active package
+IF EXISTS (SELECT 1 FROM Buys NATURAL JOIN Owns WHERE cust_id = custId) THEN 
+  SELECT date, package_id, card_number, num_remaining_redemptions INTO buyDate, packageId, cardNumber, remainingRedem 
+  FROM Buys NATURAL JOIN Owns WHERE cust_id = custId
+  ORDER BY date DESC LIMIT 1;
+  IF remainingRedem = 0 THEN
+    IF EXISTS(
+    SELECT 1 FROM Redeems R 
+    WHERE R.package_id = packageId AND R.card_number = cardNumber AND R.buy_date = buyDate
+    AND EXISTS (SELECT 1 FROM Sessions S WHERE S.course_id = R.course_id AND S.launch_date = R.launch_date AND S.sid = R.sid AND S.date <= NEW.date - 7)
+    ) THEN 
+    hasPackage := 1;
+    END IF;
+  ELSE 
+    hasPackage := 1;  
+  END IF; 
+END IF; 
+
+IF hasPackage = 1 THEN 
+  With count_cancels AS (
+    SELECT count(*) AS c1, course_id, launch_date, sid
+    FROM Cancels
+    WHERE cust_id = custId
+    GROUP BY course_id, launch_date, sid
+  ), count_redeems AS (
+    SELECT count(*) AS c2, course_id, launch_date, sid
+    FROM Redeems
+    WHERE package_id = packageID AND card_number = cardNumber AND buy_date = buyDate
+    GROUP BY course_id, launch_date, sid
+  ), redeemed_sessions AS (
+    SELECT S.course_id, S.launch_date, S.sid, C.title AS course_name, S.date AS session_date, S.start_time AS session_start_hour
+    FROM Courses C, Sessions S, Redeems R
+    WHERE R.package_id = packageId AND R.card_number = cardNumber AND R.buy_date = buyDate 
+    AND C.course_id = S.course_id AND S.course_id = R.course_id AND S.sid = R.sid AND S.launch_date = R.launch_date
+  )
+  
+  SELECT row_to_json(info) INTO result
+  FROM (
+    SELECT name, date AS purchase_date, price, num_free_registrations, num_remaining_redemptions, (SELECT json_agg(sessions) FROM (
+    SELECT course_name, session_date, session_start_hour
+    FROM redeemed_sessions NATURAL LEFT OUTER JOIN count_cancels NATURAL LEFT OUTER JOIN count_redeems
+    WHERE COALESCE (c2, 0) - COALESCE (c1, 0) = 1
+    ORDER BY session_date, session_start_hour) sessions) AS redeemed_sessions
+    FROM Course_packages NATURAL JOIN Buys
+    WHERE package_id = packageID AND date = buyDate AND card_number = cardNumber
+  ) info;
+END IF;
+ 
+RETURN result;
+
 END;             
 $$ LANGUAGE plpgsql;
 --select * FROM get_my_course_package(5);
