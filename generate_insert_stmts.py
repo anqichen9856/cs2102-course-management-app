@@ -34,5 +34,5 @@ for name, df in workbook.items():
 
 # For individual sheet testing    
 # df = pd.read_excel('data.xlsx', sheet_name='Cancels', engine='openpyxl')
-# f = open('data.sql', 'a')
+# f = open('data.sql', 'w+')
 # f.write(make_stmts_for_table(df, 'Test') + '\n\n')
