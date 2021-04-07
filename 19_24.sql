@@ -78,7 +78,7 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
       -- check there are seat in the new session: if the number of student in the session exceeds the room capacity
       IF new_date < CURRENT_DATE THEN
         RAISE EXCEPTION 'session started';
-      ELSIF (students > seat) THEN
+      ELSIF (students >= seat) THEN
         RAISE EXCEPTION 'no seat in new session';
       -- if costommer register directly, the record of that costommer in register
       ELSIF inRegister(cust, course, launch) THEN
@@ -208,7 +208,7 @@ AS $$
       -- check if the room is valiable for the session
       -- IF NOT EXISTS(SELECT * FROM find_rooms(NEW.date, NEW.start_time, session_duration) WHERE rid = NEW.rid) THEN
 	    IF (NEW.rid NOT IN (SELECT rid FROM find_rooms(NEW.date, NEW.start_time, session_duration))) THEN
-        RAISE EXCEPTION 'the room is not available, unable to INSERT or UPDATE %' ;
+        RAISE EXCEPTION 'the room is not available, unable to INSERT or UPDATE' ;
 
       -- check if the instructor can teach this session
       ELSIF (NEW.eid NOT IN (SELECT eid FROM find_instructors (NEW.course_id, NEW.date, NEW.start_time))) THEN
@@ -233,7 +233,7 @@ DROP TRIGGER IF EXISTS sessions_trigger ON Sessions;
 CREATE CONSTRAINT TRIGGER sessions_trigger
 AFTER INSERT OR UPDATE ON Sessions
 DEFERRABLE INITIALLY DEFERRED
-
+FOR EACH ROW EXECUTE FUNCTION sessions_func();
 
 
 -- syntax correct
