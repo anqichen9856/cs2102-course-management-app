@@ -27,7 +27,7 @@ CREATE TABLE Employees (
   	name TEXT NOT NULL,
   	email TEXT NOT NULL,
   	phone TEXT NOT NULL,
-  	address TEXT,
+  	address TEXT NOT NULL,
   	join_date DATE NOT NULL,
 	depart_date DATE,
 	CHECK (join_date <= depart_date),
@@ -143,9 +143,9 @@ CREATE TABLE Specializes (
 
 CREATE TABLE Customers (
   	cust_id INTEGER PRIMARY KEY,
-  	name TEXT,
-  	email TEXT,
-  	phone TEXT,
+  	name TEXT NOT NULL,
+  	email TEXT NOT NULL,
+  	phone TEXT NOT NULL,
   	address TEXT,
 	UNIQUE (name, email, phone, address)
 );
