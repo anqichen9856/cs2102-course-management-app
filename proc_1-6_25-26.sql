@@ -165,6 +165,8 @@ BEGIN
                 AND (
                     (S.start_time BETWEEN session_start_time AND session_end_time) 
                     OR (S.end_time BETWEEN session_start_time AND session_end_time)
+                    OR (session_start_time BETWEEN S.start_time AND S.end_time)
+                    OR (session_end_time BETWEEN S.start_time AND S.end_time)
                 )
             )
             AND NOT EXISTS (
