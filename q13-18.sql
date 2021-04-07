@@ -113,11 +113,11 @@ FROM (
 WHERE registration_deadline >= CURRENT_DATE AND (count_registers + count_redeems - count_cancels) < seating_capacity  
 ORDER BY registration_deadline, title;                                          
 $$ LANGUAGE sql;                 
---TEST select * from get_available_course_offerings() RESULT 1 row 
+--TEST select * from get_available_course_offerings()
 
 --16                
 CREATE OR REPLACE FUNCTION get_available_course_sessions(courseId INT, launchDate DATE)
-RETURNS TABLE(session_date DATE, start_time NUMERIC, instructor_name TEXT, num_remaining_seats INTEGER) 
+RETURNS TABLE(session_date DATE, start_time NUMERIC, instructor_name TEXT, num_remaining_seats INT) 
 AS $$
 BEGIN
 IF NOT EXISTS (SELECT 1 FROM Offerings WHERE course_id = courseId AND launch_date = launchDate) THEN
@@ -126,7 +126,8 @@ END IF;
 IF NOT EXISTS (SELECT 1 FROM Offerings WHERE course_id = courseId AND launch_date = launchDate AND registration_deadline >= CURRENT_DATE) THEN
 RAISE EXCEPTION 'Registration deadline for course Offering of % launched on % is passed', courseId, launchDate; 
 END IF;
-SELECT session_date, start_time, instructor_name, (seating_capacity - count_registers - count_redeems + count_cancels) AS num_remaining_seats
+
+RETURN QUERY SELECT SS.session_date, SS.start_time, SS.instructor_name, (SS.seating_capacity - SS.count_registers - SS.count_redeems + SS.count_cancels)::INT AS num_remaining_seats
 FROM ( 
   SELECT S.date AS session_date, S.start_time, E.name AS instructor_name, R.seating_capacity
   , COALESCE (count1, 0) AS count_registers
@@ -140,8 +141,8 @@ FROM (
   NATURAL LEFT OUTER JOIN (SELECT course_id, launch_date, sid, count(*) AS count3 FROM Cancels GROUP BY course_id, launch_date, sid) AS R3
   WHERE course_id = courseId AND launch_date = launchDate 
 ) AS SS                                                                 
-WHERE count_registers + count_redeems - count_cancels < seating_capacity 
-ORDER BY session_date, start_time;
+WHERE SS.count_registers + SS.count_redeems - SS.count_cancels < SS.seating_capacity 
+ORDER BY SS.session_date, SS.start_time;
 END;
 $$ LANGUAGE plpgsql; 
 --select * from get_available_course_sessions(2, '2022-09-01') RETURN error message'Course Offering...is invalid' 
@@ -177,6 +178,9 @@ IF paymentMethod = 1 THEN
     WHERE EXISTS (SELECT 1 FROM Owns O WHERE O.cust_id = custId AND O.card_number = B.card_number)
     AND B.num_remaining_redemptions >= 1
     ORDER BY B.num_remaining_redemptions LIMIT 1;
+    IF packageId ISNULL THEN 
+      RAISE EXCEPTION 'Customer % has no active package', custId; 
+    END IF;
     INSERT INTO Redeems VALUES(packageId, cardNumber, buyDate, courseId, launchDate, sessionNumber, CURRENT_DATE);
     RAISE NOTICE 'The session successfully redeemed with package %', packageId;
 ELSE 
@@ -191,7 +195,7 @@ END IF;
 --end check payment method
 END;
 $$ LANGUAGE plpgsql;
---call register_session(1, 7, '2021-03-30', 1, 0); select * from registers; 
+-- call register_session(1, 7, '2021-03-30', 1, 0); select * from registers; 
 
 
 --18 search through registers and redeems 
