@@ -95,14 +95,14 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
   END;
 $$ LANGUAGE plpgsql;
 -- test 19:
--- 1 new session is not avaliable
+-- 1 new session started
 -- CALL update_course_session (2, 2, DATE '2020-10-05', 2);
--- 2 new session has no seat
---
+-- 2 costommer redeem
+-- CALL update_course_session (2, 5, DATE '2021-03-10', 2);
 -- 3 costommer register directly
 --
--- 4 costommer redeem
---
+-- 4 session is not avaliable
+-- CALL update_course_session (8, 5, DATE '2021-03-30', 2);
 
 
 
@@ -180,12 +180,14 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
 $$ LANGUAGE plpgsql;
 
 -- test 20:
--- 1 check cancelltion is not valid: pass the date
--- CALL cancel_registration (cust INTEGER, course INTEGER, launch DATE);
+-- 1 pass the date
+-- CALL cancel_registration (2, 2, DATE '2020-10-05');
 -- 2 costommer register directly
---
+-- CALL cancel_registration (8, 5, DATE '2021-03-30');
 -- 3 costommer redeem
 --
+-- null value in column "sid" violates not-null constraint
+-- CALL cancel_registration (2, 5, DATE '2021-03-30');
 
 
 
@@ -239,14 +241,22 @@ CREATE OR REPLACE FUNCTION sessions_delete_func() RETURNS TRIGGER
 AS $$
   DECLARE
     students INTEGER;
+    offering_start DATE;
+    offering_end DATE;
   BEGIN
     students := student_in_session(OLD.course_id, OLD.launch_date, OLD.sid);
     -- check if there are someone in the session
+    -- registers_course_id_launch_date_sid_fkey & redeems_course_id_launch_date_sid_fkey already checked ???
     IF (students > 0) THEN
       RAISE EXCEPTION 'there are student in the session, cannot delete session';
     ELSIf OLD.date < CURRENT_DATE THEN
       RAISE EXCEPTION 'the course session has started';
     ELSE
+      SELECT COALESCE(MIN(date)) INTO offering_start FROM Sessions WHERE course_id = course AND launch_date = launch;
+      SELECT COALESCE(MAX(date)) INTO offering_end FROM Sessions WHERE course_id = course AND launch_date = launch;
+      UPDATE Offerings
+        SET start_date = offering_start, end_date = offering_end
+        WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
       RETURN NULL;
     END IF;
   END;
@@ -274,9 +284,9 @@ AS $$
   END;
 $$ LANGUAGE plpgsql;
 -- test 21:
--- 1 instructor is available
--- CALL update_instructor (course INTEGER, launch DATE, session_id INTEGER, new_eid INTEGER);
--- 2 instructor is not available
+-- 1 instructor is not available -- ?
+-- CALL update_instructor (7, DATE '2021-03-30', 1, 15);
+-- 2 instructor is available
 --
 
 
@@ -304,7 +314,7 @@ $$ LANGUAGE plpgsql;
 
 -- test 22:
 -- 1 room is available
--- CALL update_room (course INTEGER, launch DATE, session_id INTEGER, new_rid INTEGER);
+-- CALL update_room (7, DATE '2021-03-30', 4, 4);
 -- 2 room is not available
 --
 
@@ -317,25 +327,23 @@ $$ LANGUAGE plpgsql;
 -- 23. remove_session: This routine is used to remove a course session.
 CREATE OR REPLACE PROCEDURE remove_session (course INTEGER, launch DATE, session_id INTEGER)
 AS $$
-  DECLARE
-    offering_start DATE;
-    offering_end DATE;
+
   BEGIN
     DELETE FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session_id;
-    SELECT COALESCE(MIN(date)) INTO offering_start FROM Sessions WHERE course_id = course AND launch_date = launch;
-    SELECT COALESCE(MAX(date)) INTO offering_end FROM Sessions WHERE course_id = course AND launch_date = launch;
-    UPDATE Offerings
-      SET start_date = offering_start, end_date = offering_end
-      WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+
   END;
 $$ LANGUAGE plpgsql;
 -- test 23:
 -- 1 offering time changed
--- CALL remove_session (course INTEGER, launch DATE, session_id INTEGER);
+--
 -- 2 there are student in the session
 --
 -- 3 session started
---
+-- CALL remove_session (4, DATE '2020-09-01', 2);
+-- 4 update or delete on table "sessions" violates foreign key constraint "registers_course_id_launch_date_sid_fkey" on table "registers"
+-- CALL remove_session (5, DATE '2021-03-30', 1);
+-- 5 update or delete on table "sessions" violates foreign key constraint "redeems_course_id_launch_date_sid_fkey" on table "redeems"
+-- CALL remove_session (5, DATE '2021-03-10', 2);
 
 
 
@@ -403,22 +411,27 @@ BEGIN
     ) A;
   fees_register := count_registers * fees;
 
--- syntax correct
   -- costommers redeem
-  SELECT SUM(C.price/C.num_free_registrations)
+  SELECT ROUND(SUM(C.price/C.num_free_registrations))
   INTO fees_redeem
   FROM (
     (SELECT C.package_id, C.num_free_registrations, C.price FROM Course_packages C) C
     INNER JOIN
     -- packages that used to redeem the couse offering
-    (SELECT P.package_id
-      FROM (
-        (SELECT course_id, launch_date FROM Redeems WHERE course_id = course AND launch_date = launch)
-		  EXCEPT
-        (SELECT course_id, launch_date FROM Cancels WHERE course_id = course AND launch_date = launch)
-      ) P
-    ) I
-    ON (C.package_id = P.package_id)
+    (SELECT package_id
+      FROM (SELECT *
+        FROM (
+          ((SELECT course_id, launch_date FROM Redeems WHERE course_id = course AND launch_date = launch)
+  		  EXCEPT
+          (SELECT course_id, launch_date FROM Cancels WHERE course_id = course AND launch_date = launch)) A
+        INNER JOIN
+          (SELECT package_id, course_id, launch_date FROM Redeems WHERE course_id = course AND launch_date = launch) B
+        ON (A.course_id = B.course_id AND A.launch_date = B.launch_date)
+        ) R
+    ) P
+
+  ) I
+    ON (C.package_id = I.package_id)
   );
   -- total fees for one offering
   fees_offering := fees_register + fees_redeem;
@@ -427,26 +440,27 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- syntax correct
-CREATE FUNCTION total_fee(M_eid INTEGER)
+CREATE OR REPLACE FUNCTION total_fee(M_eid INTEGER)
   RETURNS NUMERIC AS $$
   DECLARE
     fees_offering NUMERIC;
     total_fee NUMERIC;
     -- for each couse offering by the manager with id M_eid
-    curs CURSOR FOR
-      (SELECT * FROM Offering
-        WHERE course_id IN (SELECT course_id FROM Courses WHERE course_area IN (SELECT * FROM Course_areas WHERE eid = M_eid))
-          AND EXTRACT(YEAR FROM end_date) = current_year);
-    r RECORD;
+    curs_o CURSOR FOR
+      (SELECT * FROM Offerings
+        WHERE course_id IN (SELECT course_id FROM Courses WHERE course_area IN (SELECT name FROM Course_areas WHERE eid = M_eid))
+          AND EXTRACT(YEAR FROM end_date) = EXTRACT(YEAR FROM CURRENT_DATE));
+    r_o RECORD;
   BEGIN
-    OPEN curs;
+    total_fee := 0;
+    OPEN curs_o;
     LOOP
-      FETCH curs INTO r;
+      FETCH curs_o INTO r_o;
       EXIT WHEN NOT FOUND;
-      fees_offering := fee_one_offering(r.course_id, r.launch_date, r.fees);
+      fees_offering := fee_one_offering(r_o.course_id, r_o.launch_date, r_o.fees);
       total_fee := total_fee + fees_offering;
     END LOOP;
-    CLOSE curs;
+    CLOSE curs_o;
     RETURN total_fee;
   END;
 $$ LANGUAGE plpgsql;
@@ -464,7 +478,7 @@ RETURNS TABLE(title TEXT) AS $$
       FROM Offerings
       -- the offering managed by this manager that ended this year
       WHERE course_id
-          IN (SELECT course_id FROM Courses WHERE course_area IN (SELECT course_area FROM Course_areas WHERE eid = M_eid))
+          IN (SELECT course_id FROM Courses WHERE course_area IN (SELECT name FROM Course_areas WHERE eid = M_eid))
         AND EXTRACT(YEAR FROM end_date) = year
       ) C
 	 GROUP BY course_id
@@ -483,22 +497,22 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
     current_year INTEGER;
     max_offering_fee NUMERIC;
     max_cid INTEGER;
-    curs CURSOR FOR (SELECT * FROM Managers);
-    r RECORD;
+    curs_m CURSOR FOR (SELECT * FROM Managers);
+    r_m RECORD;
     curs_tie refcursor;
     r_tie RECORD;
   BEGIN
     current_year := EXTRACT(YEAR FROM CURRENT_DATE);
-    OPEN curs;
+    OPEN curs_m;
     LOOP
-      FETCH curs INTO r;
+      FETCH curs_m INTO r_m;
       EXIT WHEN NOT FOUND;
 
       -- name of manager
-      SELECT name INTO M_name FROM Employees WHERE eid = r.eid;
+      SELECT name INTO M_name FROM Employees WHERE eid = r_m.eid;
 
       -- number of course area
-      SELECT COUNT(*) INTO num_course_areas FROM Course_areas WHERE eid = r.eid;
+      SELECT COUNT(*) INTO num_course_areas FROM Course_areas WHERE eid = r_m.eid;
 
       -- number of course offering
       SELECT COUNT(*)
@@ -506,14 +520,14 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
         FROM Offerings
         -- the offering managed by this manager that ended this year
         WHERE course_id
-            IN (SELECT course_id FROM Courses WHERE course_area IN (SELECT * FROM Course_areas WHERE eid = r.eid))
+            IN (SELECT course_id FROM Courses WHERE course_area IN (SELECT name FROM Course_areas WHERE eid = r_m.eid))
           AND EXTRACT(YEAR FROM end_date) = current_year; -- ended this year
 
       -- find total registratino fee
-      total_registratino_fee := total_fee(r.eid);
+      total_registratino_fee := total_fee(r_m.eid);
 
       -- title of course offering with the highest registration fee.
-      OPEN curs_tie FOR (SELECT * FROM highest_total_fees(current_year, r.eid));
+      OPEN curs_tie FOR (SELECT * FROM highest_total_fees(current_year, r_m.eid));
       LOOP
         FETCH curs_tie INTO r_tie;
         EXIT WHEN NOT FOUND;
@@ -522,9 +536,13 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
       END LOOP;
       CLOSE curs_tie;
     END LOOP;
-    CLOSE curs;
+    CLOSE curs_m;
   END;
 $$ LANGUAGE plpgsql;
 
--- test 24:
--- 1 view_manager_report()
+-- test 30:
+-- 1
+-- 18.13
+-- SELECT fee_one_offering(4, DATE '2020-09-01', 10.90)
+SELECT total_fee(6);
+-- SELECT * FROM view_manager_report()
