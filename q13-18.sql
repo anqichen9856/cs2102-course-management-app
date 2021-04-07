@@ -12,7 +12,7 @@ IF NOT EXISTS (SELECT 1 FROM Course_packages WHERE Course_packages.package_id = 
 RAISE EXCEPTION 'Package ID % is not valid', packageId;
 END IF;
 SELECT num_free_registrations FROM Course_packages P WHERE P.package_id = packageId INTO n; 
-SELECT card_number FROM Owns O WHERE O.cust_id = custId ORDER BY O.from_date LIMIT 1 INTO cardNumber;
+SELECT card_number FROM Owns O WHERE O.cust_id = custId ORDER BY O.from_date DESC LIMIT 1 INTO cardNumber;
 INSERT INTO Buys VALUES (packageId, cardNumber, CURRENT_DATE, n);
 RAISE NOTICE 'The purchase of package % by customer % on % is successful', packageId, custId, CURRENT_DATE;
 END;                

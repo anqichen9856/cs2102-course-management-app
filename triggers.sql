@@ -178,15 +178,36 @@ FOR EACH ROW EXECUTE FUNCTION course_area_manager_func();
 /* Buys trigger */
 CREATE OR REPLACE FUNCTION buy_package_func() RETURNS TRIGGER
 AS $$
+DECLARE 
+custId INT;
+buyDate Date;
+packageId INT;
+cardNumber TEXT;
+remainingRedem INT;
 BEGIN
-    IF EXISTS (SELECT 1 FROM Buys B WHERE B.package_id = NEW.package_id AND B.card_number = NEW.card_number AND B.date = NEW.date) THEN
-        RAISE EXCEPTION 'Mutiple purchases of the same package % by card % on the same day % is not allowed', NEW.package_id , NEW.card_number, NEW.date;
-    END IF;
     IF NOT EXISTS (SELECT 1 FROM Owns O WHERE O.card_number = NEW.card_number) THEN
         RAISE EXCEPTION 'Card number % is invalid', NEW.card_number;
     END IF;
+
+    SELECT cust_id INTO custId FROM Owns O WHERE O.card_number = NEW.card_number;
+    --check if customer has an active or partially active package
+    IF EXISTS (SELECT 1 FROM Buys NATURAL JOIN Owns WHERE cust_id = custId) THEN 
+        SELECT date, package_id, card_number, num_remaining_redemptions INTO buyDate, packageId, cardNumber, remainingRedem 
+        FROM Buys NATURAL JOIN Owns WHERE cust_id = custId
+        ORDER BY date DESC LIMIT 1;
+        IF remainingRedem = 0 THEN
+            IF EXISTS(
+            SELECT 1 FROM Redeems R 
+            WHERE R.package_id = packageId AND R.card_number = cardNumber AND R.buy_date = buyDate
+            AND EXISTS (SELECT 1 FROM Sessions S WHERE S.course_id = R.course_id AND S.launch_date = R.launch_date AND S.sid = R.sid AND S.date <= NEW.date - 7)
+            ) THEN RAISE EXCEPTION 'Customer % has a partially active package %, another package cannot be bought', custId, packageId; 
+            END IF;
+        ELSE RAISE EXCEPTION 'Customer % has an active package %, another package cannot be bought', custId, packageId;       
+        END IF; 
+    END IF; 
+
     IF NOT EXISTS (SELECT 1 FROM Course_packages WHERE Course_packages.package_id = NEW.package_id) THEN
-    RAISE EXCEPTION 'Package ID % is invalid', NEW.package_id;
+        RAISE EXCEPTION 'Package ID % is invalid', NEW.package_id;
     END IF;    
     IF NOT EXISTS (SELECT 1 FROM Credit_cards C WHERE C.number = NEW.card_number AND C.expiry_date >= NEW.date) THEN
         RAISE EXCEPTION 'Card number % has expired', NEW.card_number;
