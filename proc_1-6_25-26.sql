@@ -126,7 +126,7 @@ $$ LANGUAGE plpgsql;
 -- an instructor who is assigned to teach a course session must be specialized in that course area. 
 -- Each instructor can teach at most one course session at any hour. 
     -- s,e are new session
-    -- overlap：s <= s' <= e or s <= e' <= e
+    -- overlap：s <= s' <= e or s <= e' <= e (mutual)
 -- there must be at least one hour of break between any two course sessions that the instructor is teaching
     -- s,e are new session
     -- <1h break: s-1 < e' <= s or e <= s' < e+1
