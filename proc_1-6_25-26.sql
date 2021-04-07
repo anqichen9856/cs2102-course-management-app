@@ -176,7 +176,8 @@ BEGIN
                     OR (S.start_time >= session_end_time AND S.start_time < session_end_time + 1)
                 ) 
             )
-            AND total_hours_that_month <= 30
+            AND (r.eid IN (SELECT FI.eid FROM Full_time_instructors FI) 
+                    OR total_hours_that_month <= 30)
         THEN
             eid := r.eid;
             name := r.name;
