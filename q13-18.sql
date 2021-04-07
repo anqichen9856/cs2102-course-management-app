@@ -46,7 +46,7 @@ IF EXISTS (SELECT 1 FROM Buys NATURAL JOIN Owns WHERE cust_id = custId) THEN
     IF EXISTS(
     SELECT 1 FROM Redeems R 
     WHERE R.package_id = packageId AND R.card_number = cardNumber AND R.buy_date = buyDate
-    AND EXISTS (SELECT 1 FROM Sessions S WHERE S.course_id = R.course_id AND S.launch_date = R.launch_date AND S.sid = R.sid AND S.date <= NEW.date - 7)
+    AND EXISTS (SELECT 1 FROM Sessions S WHERE S.course_id = R.course_id AND S.launch_date = R.launch_date AND S.sid = R.sid AND CURRENT_DATE <= S.date - 7)
     ) THEN 
     hasPackage := 1;
     END IF;
