@@ -544,5 +544,5 @@ $$ LANGUAGE plpgsql;
 -- 1
 -- 18.13
 -- SELECT fee_one_offering(4, DATE '2020-09-01', 10.90)
-SELECT total_fee(6);
+-- SELECT total_fee(6);  -- ?always return null
 -- SELECT * FROM view_manager_report()
