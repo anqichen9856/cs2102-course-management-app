@@ -319,9 +319,8 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS sessions_trigger ON Sessions;
 
-CREATE CONSTRAINT TRIGGER sessions_trigger
-AFTER INSERT ON Sessions
-DEFERRABLE INITIALLY DEFERRED
+CREATE TRIGGER sessions_trigger
+BEFORE INSERT ON Sessions
 FOR EACH ROW EXECUTE FUNCTION sessions_func();
 
 
