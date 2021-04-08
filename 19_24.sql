@@ -529,7 +529,8 @@ AS $$
       WHERE course_id = course AND launch_date = launch;
 
     IF NOT EXISTS(SELECT * FROM Offerings WHERE course_id = course AND launch_date = launch) THEN
-      RAISE EXCEPTION 'couese offering does not exist, unable to add session';
+      RAISE EXCEPTION 'course offering does not exist, unable to add session';
+
     ELSIF CURRENT_DATE < deadline THEN
       RAISE EXCEPTION 'the course offering’s registration deadline has passed, unable to add session';
 
