@@ -1,6 +1,6 @@
 -- 7 DONE
 -- we need to assume that the start_date and end_date are within the same month.
--- hour array indicates whether the instructor is available for the entire hour. eg. if the room has a session starting from 15:30, 15 will not be in available hours.
+-- hour array indicates whether the instructor is available for the entire hour. eg. if a session starting from 15:30, 15 will not be in available hours.
 CREATE OR REPLACE FUNCTION get_available_instructors(cid INT, start_date DATE, end_date DATE)
 RETURNS TABLE (eid INT, name TEXT, hours INT, day DATE, available_hours INT[]) AS $$
 DECLARE
@@ -30,7 +30,7 @@ BEGIN
  		AND S.date BETWEEN
                  DATE_TRUNC('month', start_date)::DATE AND 
                  (DATE_TRUNC('month', start_date) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
-        IF r_instructor.area = area AND total_hours_that_month + d <= 30
+        IF r_instructor.area = area AND ((r.eid IN (SELECT FI.eid FROM Full_time_instructors FI) OR total_hours_that_month + d <= 30))
         THEN
             eid := r_instructor.eid;
             name := r_instructor.name;
@@ -48,6 +48,7 @@ BEGIN
                     LOOP
                         EXIT WHEN curr_hour >= 18;
                         IF (curr_hour <= 12 OR curr_hour >= 14)
+                        -- no lesson at curr_hour
                         AND NOT EXISTS (
                             SELECT 1
                             FROM Sessions S
@@ -57,6 +58,17 @@ BEGIN
                                     OR (S.start_time > curr_hour AND S.start_time < curr_hour + 1) 
                                     OR (curr_hour > S.start_time AND curr_hour < S.end_time))
                         ) 
+                        -- no lesson before and after curr_hour
+                        AND NOT EXISTS (
+                            SELECT 1 
+                            FROM Sessions S
+                            WHERE S.date = day
+                            AND S.eid = r_instructor.eid
+                            AND (
+                                (S.end_time > curr_hour - 1 AND S.end_time <= curr_hour)
+                                OR (S.start_time >= curr_hour AND S.start_time < curr_hour + 1)
+                            ) 
+                        )
                         THEN hours_array := hours_array || curr_hour;
                         END IF;
                         curr_hour := curr_hour + 1;
@@ -183,10 +195,9 @@ BEGIN
         END IF;
 
         -- insert into sessions table
-        -- choose a random instructor from the list? 
-        --sid := sid + 1;
-        --SELECT MIN(eid) INTO instructor_id FROM find_instructors(cid, date, start_hour);
-        --add_session(cid, launch_date, sid, date, start_hour, instructor_id, rid);
+        sid := sid + 1;
+        SELECT MIN(eid) INTO instructor_id FROM find_instructors(cid, date, start_hour);
+        CALL add_session(cid, launch_date, sid, date, start_hour, instructor_id, rid);
         
         IF date < start_date 
         THEN start_date := date;
@@ -244,7 +255,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 27
--- MORE TEST CASES NEEDED
 -- only check sale_start date? not buys date? 
 CREATE OR REPLACE FUNCTION top_packages(n INT)
 RETURNS TABLE (package_id INT, num_free_registrations INT, price NUMERIC, sale_start_date DATE, sale_end_date DATE, num_sold INT) AS $$
