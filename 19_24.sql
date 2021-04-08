@@ -364,6 +364,8 @@ AS $$
   SELECT date, start_time INTO session_date, start_time FROM Sessions WHERE course_id = course AND sid = session_id;
   IF (new_eid NOT IN (SELECT eid FROM find_instructors (course, session_date, start_time))) THEN
     RAISE EXCEPTION 'instructor not avaliable';
+  ELSIF session_date > CURRENT_DATE THEN
+    RAISE EXCEPTION 'session started';
   ELSE
     UPDATE Sessions
       SET eid = new_eid
@@ -386,33 +388,45 @@ CREATE OR REPLACE PROCEDURE update_room (course INTEGER, launch DATE, session_id
 AS $$
   DECLARE
     seat INTEGER;
+    old_room INTEGER;
     students INTEGER;
     session_date DATE;
     session_start INTEGER;
+    session_end INTEGER;
     offering_capacity INTEGER;
+    target INTEGER;
 
   BEGIN
-  	SELECT date, start_time INTO session_date, session_start FROM Sessions WHERE course_id = course AND sid = session_id AND launch_date = launch;
-    IF (new_rid NOT IN (SELECT rid FROM find_rooms(session_date, session_start, session_duration))) THEN
+  	SELECT date, start_time, end_time, rid INTO session_date, session_start, session_end, old_room FROM Sessions WHERE course_id = course AND sid = session_id AND launch_date = launch;
+    -- the seat capacity offering before the update
+    SELECT seating_capacity, target_number_registrations INTO offering_capacity, target FROM Offerings WHERE course_id = course AND launch_date = launch;
+
+
+    IF (new_rid NOT IN (SELECT rid FROM find_rooms(session_date, session_start, session_start - session_end))) THEN
       RAISE EXCEPTION 'the room is not available';
+
+    ELSIF session_date > CURRENT_DATE THEN
+      RAISE EXCEPTION 'session started';
+
     ELSE
       students := student_in_session(course, launch, session);
-      SELECT seating_capacity INTO seat FROM Rooms WHERE rid = new_rid;
+      SELECT seating_capacity INTO seat FROM Rooms WHERE rid = new_rid; -- the seat capacity of the new room
+      SELECT seating_capacity INTO seat_old FROM Rooms WHERE rid = old_room ; -- the seat capacity of the old room
+
       -- check if the number of student in the session exceeds the room capacity
       IF (students <= seat) THEN
-      -- check if the 
-        SELECT SUM(seating_capacity)
-          INTO offering_capacity
-          FROM (Session S INNER JOIN Rooms R ON (S.rid = R.rid))
-          WHERE course_id = course AND launch_date = launch;
 
+      -- if the new room will make the seating capacity of the offering exceeds
+      ELSIF (offering_capacity - seat_old + seat) > target THEN
+        RAISE EXCEPTION 'target_number_registrations exceeds';
+
+      ELSE
         UPDATE Sessions
           SET rid = new_rid
           WHERE course_id = course AND session_id = sid AND launch_date = launch;
         -- update offering capacity
-
         UPDATE Offerings
-          SET seating_capacity = offering_capacity
+          SET seating_capacity = (offering_capacity - seat_old + seat)
           WHERE course_id = course AND launch_date = launch;
       END IF;
 	END IF;
@@ -434,6 +448,8 @@ AS $$
     students INTEGER;
     offering_start DATE;
     offering_end DATE;
+    room_id INTEGER;
+    room_deleted_session INTEGER;
   BEGIN
     students := student_in_session(OLD.course_id, OLD.launch_date, OLD.sid); --
     -- check if there are someone in the session
@@ -443,10 +459,17 @@ AS $$
     ELSIf OLD.date < CURRENT_DATE THEN
       RAISE EXCEPTION 'the course session has started';
     ELSE
-      SELECT COALESCE(MIN(date)) INTO offering_start FROM Sessions WHERE course_id = course AND launch_date = launch;
-      SELECT COALESCE(MAX(date)) INTO offering_end FROM Sessions WHERE course_id = course AND launch_date = launch;
+      SELECT COALESCE(MIN(date)) INTO offering_start FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+      SELECT COALESCE(MAX(date)) INTO offering_end FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+      SELECT rid INTO room_id FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date AND sid = OLD.sid;
+      SELECT seating_capacity INTO room_deleted_session FROM Rooms WHERE rid = room_id;
       UPDATE Offerings
         SET start_date = offering_start, end_date = offering_end
+        WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+
+      -- update seat capacity
+      UPDATE Offerings
+        SET seating_capacity =  seating_capacity - room_deleted_session;
         WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
       RETURN NULL;
     END IF;
@@ -462,7 +485,6 @@ FOR EACH ROW EXECUTE FUNCTION delete_sessions_func();
 
 -- 23.
 
--- syntax correct
 -- 23. remove_session: This routine is used to remove a course session.
 CREATE OR REPLACE PROCEDURE remove_session (course INTEGER, launch DATE, session_id INTEGER)
 AS $$
