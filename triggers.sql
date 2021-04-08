@@ -5,11 +5,8 @@
 CREATE OR REPLACE FUNCTION emp_covering_con_func() RETURNS TRIGGER 
 AS $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM Full_time_Emp FE WHERE FE.eid = NEW.eid
-    ) AND NOT EXISTS (
-        SELECT 1 FROM Part_time_Emp FE WHERE FE.eid = NEW.eid
-    ) THEN
+    IF NEW.eid NOT IN (SELECT FE.eid FROM Full_time_Emp FE) 
+    AND NEW.eid NOT IN (SELECT PE.eid FROM Part_time_Emp PE) THEN
         RAISE EXCEPTION 'Employee % must be either full-time or part-time.', NEW.eid;
     END IF;
     RETURN NULL;
@@ -25,9 +22,7 @@ FOR EACH ROW EXECUTE FUNCTION emp_covering_con_func();
 CREATE OR REPLACE FUNCTION part_time_emp_covering_con_func() RETURNS TRIGGER 
 AS $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM Part_time_instructors PI WHERE PI.eid = NEW.eid
-    ) THEN
+    IF NEW.eid NOT IN (SELECT PI.eid FROM Part_time_instructors PI) THEN
         RAISE EXCEPTION 'Part-time employee % must be instructor.', NEW.eid;
     END IF;
     RETURN NULL;
@@ -43,13 +38,9 @@ FOR EACH ROW EXECUTE FUNCTION part_time_emp_covering_con_func();
 CREATE OR REPLACE FUNCTION full_time_emp_covering_con_func() RETURNS TRIGGER 
 AS $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM Administrators A WHERE A.eid = NEW.eid
-    ) AND NOT EXISTS (
-        SELECT 1 FROM Managers M WHERE M.eid = NEW.eid
-    ) AND NOT EXISTS (
-        SELECT 1 FROM Full_time_instructors FI WHERE FI.eid = NEW.eid
-    ) THEN
+    IF NEW.eid NOT IN (SELECT A.eid FROM Administrators A) 
+    AND NEW.eid NOT IN (SELECT M.eid FROM Managers M) 
+    AND NEW.eid NOT IN (SELECT FI.eid FROM Full_time_instructors FI) THEN
         RAISE EXCEPTION 'Full-time employee % must be either administrator or manager or instructor.', NEW.eid;
     END IF;
     RETURN NULL;
@@ -65,11 +56,8 @@ FOR EACH ROW EXECUTE FUNCTION full_time_emp_covering_con_func();
 CREATE OR REPLACE FUNCTION instructor_covering_con_func() RETURNS TRIGGER 
 AS $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM Full_time_instructors FI WHERE FI.eid = NEW.eid
-    ) AND NOT EXISTS (
-        SELECT 1 FROM Part_time_instructors PI WHERE PI.eid = NEW.eid
-    ) THEN
+    IF NEW.eid NOT IN (SELECT FI.eid FROM Full_time_instructors FI) 
+    AND NEW.eid NOT IN (SELECT PI.eid FROM Part_time_instructors PI) THEN
         RAISE EXCEPTION 'Instructor % must be either full-time or part-time instructor.', NEW.eid;
     END IF;
     RETURN NULL;
@@ -87,9 +75,7 @@ FOR EACH ROW EXECUTE FUNCTION instructor_covering_con_func();
 CREATE OR REPLACE FUNCTION customer_owns_total_part_con_func() RETURNS TRIGGER 
 AS $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM Owns O WHERE O.cust_id = NEW.cust_id
-    ) THEN
+    IF NEW.cust_id NOT IN (SELECT O.cust_id FROM Owns O) THEN
         RAISE EXCEPTION 'Customer % must own at least one credit card.', NEW.cust_id;
     END IF;
     RETURN NULL;
@@ -105,9 +91,7 @@ FOR EACH ROW EXECUTE FUNCTION customer_owns_total_part_con_func();
 CREATE OR REPLACE FUNCTION credit_card_owns_total_part_con_func() RETURNS TRIGGER 
 AS $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM Owns O WHERE O.card_number = NEW.number
-    ) THEN
+    IF NEW.number NOT IN (SELECT O.card_number FROM Owns O) THEN
         RAISE EXCEPTION 'Credit card % must be owned by a customer.', NEW.number;
     END IF;
     RETURN NULL;
@@ -120,7 +104,20 @@ DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION credit_card_owns_total_part_con_func();
 
 -- Owns from_date < credit card's expiry_date
+CREATE OR REPLACE FUNCTION credit_card_own_before_expiry_date_func() RETURNS TRIGGER 
+AS $$
+BEGIN
+    IF (SELECT expiry_date FROM Credit_cards C WHERE C.number = NEW.card_number) <= NEW.from_date THEN
+        RAISE EXCEPTION 'Credit card % has already expired.', NEW.number;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
 
+CREATE CONSTRAINT TRIGGER credit_card_own_before_expiry_date_trigger
+AFTER INSERT OR UPDATE ON Owns
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION credit_card_own_before_expiry_date_func();
 
 /* Specializes trigger */
 
@@ -128,9 +125,7 @@ FOR EACH ROW EXECUTE FUNCTION credit_card_owns_total_part_con_func();
 CREATE OR REPLACE FUNCTION instructor_specializes_total_part_con_func() RETURNS TRIGGER 
 AS $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM Specializes S WHERE S.eid = NEW.eid
-    ) THEN
+    IF NEW.eid NOT IN (SELECT S.eid FROM Specializes S) THEN
         RAISE EXCEPTION 'Instructor % must specialize in at least a course area.', NEW.eid;
     END IF;
     RETURN NULL;

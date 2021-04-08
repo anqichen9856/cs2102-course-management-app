@@ -307,8 +307,8 @@ RETURNS TABLE (cust_id INTEGER, name TEXT, course_area TEXT, course_id INTEGER, 
         FROM Cust_Reg CR
         WHERE NOT EXISTS (
             SELECT 1 FROM Cust_Reg CR2 WHERE CR2.cust_id = CR.cust_id 
-            AND CR2.reg_date BETWEEN (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '5 month')::DATE 
-                AND (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day')::DATE
+            AND CR2.reg_date BETWEEN (CURRENT_DATE - INTERVAL '6 month')::DATE 
+                AND CURRENT_DATE
         )
     ),
     Inactive_Cust_Reg_Recent AS (
