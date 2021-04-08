@@ -1,6 +1,6 @@
 /* Employee Triggers */
 
--- Employee can be either part time or full time
+-- Employee can be either part time or full time, but not both
 -- Use simultaneous insertion with transaction when inserting/updating Employees
 CREATE OR REPLACE FUNCTION emp_covering_con_func() RETURNS TRIGGER 
 AS $$
@@ -8,6 +8,10 @@ BEGIN
     IF NEW.eid NOT IN (SELECT FE.eid FROM Full_time_Emp FE) 
     AND NEW.eid NOT IN (SELECT PE.eid FROM Part_time_Emp PE) THEN
         RAISE EXCEPTION 'Employee % must be either full-time or part-time.', NEW.eid;
+    END IF;
+    IF NEW.eid IN (SELECT FE.eid FROM Full_time_Emp FE) 
+    AND NEW.eid IN (SELECT PE.eid FROM Part_time_Emp PE) THEN
+        RAISE EXCEPTION 'Employee % cannot be both full-time and part-time.', NEW.eid;
     END IF;
     RETURN NULL;
 END;
@@ -17,6 +21,32 @@ CREATE CONSTRAINT TRIGGER emp_covering_con_trigger
 AFTER INSERT OR UPDATE ON Employees
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION emp_covering_con_func();
+
+-- Full time employee can only be ONE of the following: administrator, manager or full-time instructor
+CREATE OR REPLACE FUNCTION full_time_emp_covering_con_func() RETURNS TRIGGER 
+AS $$
+BEGIN
+    IF NEW.eid NOT IN (SELECT A.eid FROM Administrators A) 
+    AND NEW.eid NOT IN (SELECT M.eid FROM Managers M) 
+    AND NEW.eid NOT IN (SELECT FI.eid FROM Full_time_instructors FI) THEN
+        RAISE EXCEPTION 'Full-time employee % must be either administrator, manager, or full-time instructor.', NEW.eid;
+    END IF;
+    IF (NEW.eid IN (SELECT A.eid FROM Administrators A) AND NEW.eid IN (SELECT M.eid FROM Managers M))
+        OR 
+        (NEW.eid IN (SELECT A.eid FROM Administrators A) AND NEW.eid IN (SELECT FI.eid FROM Full_time_instructors FI))
+        OR
+        (NEW.eid IN (SELECT M.eid FROM Managers M) AND NEW.eid IN (SELECT FI.eid FROM Full_time_instructors FI))
+    THEN
+        RAISE EXCEPTION 'Full-time employee % cannot take more than one role from the following: administrator, manager, full-time instructor.', NEW.eid;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER full_time_emp_covering_con_trigger
+AFTER INSERT OR UPDATE ON Full_time_Emp
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION full_time_emp_covering_con_func();
 
 -- Part time employee can only be instructor
 CREATE OR REPLACE FUNCTION part_time_emp_covering_con_func() RETURNS TRIGGER 
@@ -34,31 +64,17 @@ AFTER INSERT OR UPDATE ON Part_time_Emp
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION part_time_emp_covering_con_func();
 
--- Full time employee can be either administrator, manager or full-time instructor
-CREATE OR REPLACE FUNCTION full_time_emp_covering_con_func() RETURNS TRIGGER 
-AS $$
-BEGIN
-    IF NEW.eid NOT IN (SELECT A.eid FROM Administrators A) 
-    AND NEW.eid NOT IN (SELECT M.eid FROM Managers M) 
-    AND NEW.eid NOT IN (SELECT FI.eid FROM Full_time_instructors FI) THEN
-        RAISE EXCEPTION 'Full-time employee % must be either administrator or manager or instructor.', NEW.eid;
-    END IF;
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE CONSTRAINT TRIGGER full_time_emp_covering_con_trigger
-AFTER INSERT OR UPDATE ON Full_time_Emp
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW EXECUTE FUNCTION full_time_emp_covering_con_func();
-
--- Instructors can be either full-time instructor or part-time instructor
+-- Instructors can be either full-time instructor or part-time instructor, but not both
 CREATE OR REPLACE FUNCTION instructor_covering_con_func() RETURNS TRIGGER 
 AS $$
 BEGIN
     IF NEW.eid NOT IN (SELECT FI.eid FROM Full_time_instructors FI) 
     AND NEW.eid NOT IN (SELECT PI.eid FROM Part_time_instructors PI) THEN
         RAISE EXCEPTION 'Instructor % must be either full-time or part-time instructor.', NEW.eid;
+    END IF;
+    IF NEW.eid IN (SELECT FI.eid FROM Full_time_instructors FI) 
+    AND NEW.eid IN (SELECT PI.eid FROM Part_time_instructors PI) THEN
+        RAISE EXCEPTION 'Instructor % cannot be both full-time and part-time.', NEW.eid;
     END IF;
     RETURN NULL;
 END;
