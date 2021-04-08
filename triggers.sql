@@ -302,7 +302,7 @@ FOR EACH ROW EXECUTE FUNCTION redeem_if_valid_func();
 
 /* Update Buys after Redeems */
 -- num_remaining_redemptions --
-CREATE OR REPLACE FUNCTION update_buy_record_func() RETURNS TRIGGER 
+CREATE OR REPLACE FUNCTION update_buy_redeem_func() RETURNS TRIGGER 
 AS $$
 BEGIN
     --num_remaining_redemptions has been ensured to be >= 1 before insert/update Redeems
@@ -312,10 +312,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE CONSTRAINT TRIGGER update_buy_record_trigger
+CREATE CONSTRAINT TRIGGER update_buy_redeem_trigger
 AFTER INSERT ON Redeems
 DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW EXECUTE FUNCTION update_buy_record_func();
+FOR EACH ROW EXECUTE FUNCTION update_buy_redeem_func();
 
 /* Registers trigger */
 CREATE OR REPLACE FUNCTION register_if_valid_func() RETURNS TRIGGER
