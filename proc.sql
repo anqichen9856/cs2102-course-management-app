@@ -946,7 +946,6 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
   DECLARE
     session INTEGER;
     refund_amt NUMERIC(10,2);
-    package_credit INTEGER;
     fee NUMERIC(10,2);
     registered_session_start DATE;
     latest_redeem DATE;
@@ -954,81 +953,68 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
     if_register INTEGER; -- 1 if is register, 0 if is not register
 
   BEGIN
-    -- check if cancellation valid: a customer cannot cancel a session multiple times
+    -- if customer does not have a registered session now, cannot cancel
     IF check_cancel(course, launch, cust) = 0 THEN
       RAISE EXCEPTION 'the customer not register or redeem any session or canceled, no session can be cancel for this customer';
     -- the customer registered/redeem in a session
     ELSE
-      SELECT COALESCE(MAX(date), 0)
+      SELECT MAX(date)
         INTO latest_redeem
         FROM Redeems
         WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
-      SELECT COALESCE(MAX(date), 0)
+      SELECT MAX(date)
         INTO latest_register
         FROM Registers
         WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
 
       -- check the if customer register of redeem
-      IF (latest_redeem <> NULL AND latest_register <> NULL) THEN
+      IF (latest_redeem IS NOT NULL AND latest_register IS NOT NULL) THEN
         IF (latest_redeem > latest_register) THEN
-          if_register = 0;
+          if_register := 0;
         ELSE
-          if_register = 1;
+          if_register := 1;
         END IF;
       ELSE
-        IF (latest_redeem = NULL) THEN
-          if_register = 1;
+        IF (latest_redeem IS NULL) THEN
+          if_register := 1;
         ELSE
-          if_register = 0;
+          if_register := 0;
         END IF;
       END IF;
-
+    
       -- if regester directly
       IF if_register = 1 THEN
-        SELECT sid INTO session FROM Registers WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
+        SELECT sid INTO session FROM Registers WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust)) AND date = latest_register;
         SELECT fees INTO fee FROM Offerings WHERE course_id = course AND launch_date = launch;
         SELECT date INTO registered_session_start FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session;
+        -- check if the session is alr passed. 
+        IF registered_session_start <= CURRENT_DATE THEN
+          RAISE EXCEPTION 'Session started';
+        END IF;
         -- check can be refund
         IF registered_session_start-7 >= CURRENT_DATE THEN
           refund_amt := fee * 0.9;
-          package_credit := 0;
-          INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, package_credit);
         ELSE
           refund_amt := 0; -- not refundable
-          package_credit := 0;
-          INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, package_credit);
-          RAISE NOTICE 'Cancellation will be proceed, but will be no refund as cancellation is made at least 7 days before the day of the registered session';
+          RAISE NOTICE 'Cancellation will be proceed, but will be no refund as cancellation is made at less than 7 days before the day of the registered session';
         END IF;
+        INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, 0);
       -- redeem
       ELSE
-        SELECT sid INTO session FROM Redeems WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
+        SELECT sid INTO session FROM Redeems WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust)) AND date = latest_redeem;
         SELECT date INTO registered_session_start FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session;
-        -- check can be refund
-        IF registered_session_start-7 >= CURRENT_DATE THEN
-          refund_amt := 0;
-          package_credit := 1;
-          INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, package_credit);
-        ELSE
-          refund_amt := 0;
-          package_credit := 0; -- not refundable
-          INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, package_credit);
-          RAISE NOTICE 'Cancellation will be proceed, but will be no refund as cancellation is made at least 7 days before the day of the registered session';
+        -- check if the session is alr passed. 
+        IF registered_session_start <= CURRENT_DATE THEN
+          RAISE EXCEPTION 'Session started';
+        END IF;
+        INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, 0, 1);
+        IF registered_session_start-7 < CURRENT_DATE THEN
+          RAISE NOTICE 'Cancellation will be proceed, but the number of remaining redemptions in your package cannot be added back';
         END IF;
       END IF;
     END IF;
   END;
 $$ LANGUAGE plpgsql;
-
--- test 20:
--- 1 pass the date
--- CALL cancel_registration (2, 2, DATE '2020-10-05');
--- 2 customer register directly
--- CALL cancel_registration (8, 5, DATE '2021-03-30');
--- 3 customer redeem
---
--- null value in column "sid" violates not-null constraint
--- CALL cancel_registration (2, 5, DATE '2021-03-30');
-
 
 
 -- 21
