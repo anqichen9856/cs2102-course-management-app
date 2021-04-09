@@ -30,7 +30,7 @@ BEGIN
  		AND S.date BETWEEN
                  DATE_TRUNC('month', start_date)::DATE AND 
                  (DATE_TRUNC('month', start_date) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
-        IF r_instructor.area = area AND ((r.eid IN (SELECT FI.eid FROM Full_time_instructors FI) OR total_hours_that_month + d <= 30))
+        IF r_instructor.area = area AND ((r_instructor.eid IN (SELECT FI.eid FROM Full_time_instructors FI) OR total_hours_that_month + d <= 30))
         THEN
             eid := r_instructor.eid;
             name := r_instructor.name;
@@ -47,7 +47,7 @@ BEGIN
                 THEN 
                     LOOP
                         EXIT WHEN curr_hour >= 18;
-                        IF (curr_hour <= 12 OR curr_hour >= 14)
+                        IF (curr_hour < 12 OR curr_hour >= 14)
                         -- no lesson at curr_hour
                         AND NOT EXISTS (
                             SELECT 1
@@ -143,7 +143,7 @@ BEGIN
             curr_hour := 9;
             LOOP
                 EXIT WHEN curr_hour >= 18;
-                IF (curr_hour <= 12 OR curr_hour >= 14)
+                IF (curr_hour < 12 OR curr_hour >= 14)
                 AND NOT EXISTS (
                     SELECT 1
                     FROM Sessions S
@@ -168,7 +168,7 @@ $$ LANGUAGE plpgsql;
 
 -- 10 TODO: check with add_session
 -- course offering id: cid + launch date
-CREATE OR REPLACE PROCEDURE add_course_offering(cid INT, fees NUMERIC, launch_date DATE, registration_deadline DATE, target_num_registeration INT, eid INT, session_info TEXT[][])
+CREATE OR REPLACE PROCEDURE add_course_offering(cid INT, fees NUMERIC, launch_date DATE, registration_deadline DATE, target INT, eid INT, session_info TEXT[][])
 AS $$
 DECLARE
     date DATE;
@@ -181,8 +181,8 @@ DECLARE
     sid INT := 0;
     instructor_id INT;
 	m TEXT[];
+	duration NUMERIC;
 BEGIN
-    INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target_number_registrations, seating_capacity, fees, eid);
     FOREACH m SLICE 1 IN ARRAY session_info
     LOOP
         date := m[1]::DATE;
@@ -197,23 +197,29 @@ BEGIN
 
         -- insert into sessions table
         sid := sid + 1;
-        SELECT MIN(eid) INTO instructor_id FROM find_instructors(cid, date, start_hour);
-        INSERT INTO Sessions VALUES (cid, launch_date, sid, date, start_hour, instructor_id, rid);
+        SELECT MIN(I.eid) INTO instructor_id FROM find_instructors(cid, date, start_hour) I;
+		SELECT C.duration INTO duration FROM Courses C WHERE C.course_id = cid;
+        INSERT INTO Sessions VALUES (cid, launch_date, sid, date, start_hour, start_hour+duration, instructor_id, curr_rid);
         
-        -- IF date < start_date 
-        -- THEN start_date := date;
-        -- END IF;
+        IF date < start_date 
+        THEN start_date := date;
+        END IF;
         
-        -- IF date > end_date
-        -- THEN end_date := date;
-        -- END IF;
+        IF date > end_date
+        THEN end_date := date;
+        END IF;
 
-        -- -- if rid fails foreign key constraint, the adding will fail at add_session step. 
-        -- SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = curr_rid;
-        -- seating_capacity := seating_capacity + curr_capacity;
+        -- if rid fails foreign key constraint, the adding will fail at add_session step. 
+          SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = curr_rid;
+          seating_capacity := seating_capacity + curr_capacity;
     END LOOP;
+	INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target, seating_capacity, fees, eid);
+
 END;
 $$ LANGUAGE plpgsql;
+
+-- CALL add_course_offering(10, 10, DATE '2021-06-01', '2021-06-20', 1, 10, '{{"2021-07-01", "14", "21"}}');
+
 
 -- 11 DONE
 -- checked in schema: (1) unique entry; (2) start_date <= end date; (3) price >= 0.
