@@ -1,58 +1,3 @@
-/* For populating Pay_slips */
-DROP PROCEDURE IF EXISTS pay_salary_for_month (DATE);
-CREATE OR REPLACE PROCEDURE pay_salary_for_month (date DATE)
-AS $$
-DECLARE
-    curs CURSOR FOR (
-        SELECT X.eid, X.name, X.monthly_salary, X.hourly_rate, X.join_date, X.depart_date
-        FROM (Employees NATURAL LEFT JOIN Full_time_Emp NATURAL LEFT JOIN Part_time_Emp) X
-        WHERE X.depart_date IS NULL OR X.depart_date >= DATE_TRUNC('month', date)::DATE /* don't consider employees departed before this month */
-    );
-    r RECORD;
-    num_work_days INTEGER; 
-    num_work_hours NUMERIC; 
-    amount NUMERIC;
-    first_day_of_month DATE;
-    last_day_of_month DATE;
-    first_work_day DATE;
-    last_work_day DATE;
-BEGIN
-    OPEN curs;
-    LOOP
-        FETCH curs INTO r;
-        EXIT WHEN NOT FOUND;
-
-        first_day_of_month := DATE_TRUNC('month', date)::DATE;
-        last_day_of_month := (DATE_TRUNC('month', date) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
-
-        IF r.hourly_rate IS NULL THEN /* Full-time */
-            IF r.join_date BETWEEN first_day_of_month AND last_day_of_month THEN
-                first_work_day := r.join_date;
-            ELSE
-                first_work_day := first_day_of_month;
-            END IF;
-
-            IF r.depart_date BETWEEN first_day_of_month AND last_day_of_month THEN
-                last_work_day := r.depart_date;
-            ELSE
-                last_work_day := last_day_of_month;
-            END IF;
-
-            num_work_days := last_work_day - first_work_day + 1;
-            amount := TRUNC(r.monthly_salary * num_work_days / (last_day_of_month - first_day_of_month + 1), 2);
-            INSERT INTO Pay_slips VALUES (r.eid, last_day_of_month, amount, NULL, num_work_days);
-
-        ELSE  /* Part-time */
-            SELECT COALESCE(SUM(end_time - start_time), 0) INTO num_work_hours FROM Sessions S
-                WHERE S.eid = r.eid AND S.date BETWEEN first_day_of_month AND last_day_of_month;
-            amount := TRUNC(r.hourly_rate * num_work_hours, 2);
-            INSERT INTO Pay_slips VALUES (r.eid, last_day_of_month, amount, num_work_hours, NULL);
-        END IF;
-    END LOOP;
-    CLOSE curs;
-END;
-$$ LANGUAGE plpgsql;
-
 --Employees
 INSERT INTO Employees VALUES (1, 'Jonathan Joestar', 'abc@gmail.com', '(+65) 12345678', 'abc street', '2018-01-04', NULL);
 INSERT INTO Employees VALUES (2, 'Dio Brando', 'qqq@gmail.com', '(+65) 12345679', 'bcd street ', '2018-01-01', '2021-04-06');
@@ -166,6 +111,7 @@ INSERT INTO Rooms VALUES (18, '02-08', 100);
 INSERT INTO Rooms VALUES (19, '02-09', 80);
 INSERT INTO Rooms VALUES (20, '02-10', 80);
 INSERT INTO Rooms VALUES (21, '03-01', 1);
+INSERT INTO Rooms VALUES (22, '03-02', 1);
 
 --Course_areas
 INSERT INTO Course_areas VALUES ('Database Systems', 6);
@@ -258,8 +204,8 @@ INSERT INTO Sessions VALUES (3, '2021-04-30', 1, '2021-06-22', 14.0, 17.0, 3, 15
 INSERT INTO Sessions VALUES (10, '2021-03-01', 1, '2021-04-05', 14.0, 18.0, 15, 21);
 INSERT INTO Sessions VALUES (10, '2021-03-01', 2, '2021-04-06', 14.0, 18.0, 15, 21);
 INSERT INTO Sessions VALUES (10, '2021-03-01', 3, '2021-04-07', 14.0, 18.0, 15, 21);
-INSERT INTO Sessions VALUES (10, '2021-03-01', 4, '2021-04-08', 14.0, 18.0, 15, 21);
-INSERT INTO Sessions VALUES (10, '2021-03-01', 5, '2021-04-09', 14.0, 18.0, 15, 21);
+INSERT INTO Sessions VALUES (10, '2021-03-01', 4, '2021-04-09', 14.0, 18.0, 15, 21);
+INSERT INTO Sessions VALUES (10, '2021-03-01', 5, '2021-04-15', 14.0, 18.0, 15, 21);
 INSERT INTO Sessions VALUES (10, '2021-03-01', 6, '2021-04-26', 14.0, 18.0, 15, 21);
 INSERT INTO Sessions VALUES (10, '2021-03-01', 7, '2021-04-27', 14.0, 18.0, 15, 21);
 INSERT INTO Sessions VALUES (10, '2021-03-01', 8, '2021-04-28', 14.0, 18.0, 17, 21);
@@ -383,6 +329,7 @@ INSERT INTO Redeems VALUES (3, 'A123456789013', '2021-01-01', 8, '2021-02-01', 2
 INSERT INTO Redeems VALUES (1, 'A123456789012', '2016-06-07', 8, '2021-03-01', 3, '2021-03-18');
 INSERT INTO Redeems VALUES (8, 'A123456789022', '2021-02-03', 10, '2021-03-01', 1, '2021-03-11');
 INSERT INTO Redeems VALUES (8, 'A123456789023', '2021-02-03', 10, '2021-03-01', 10, '2021-03-11');
+INSERT INTO Redeems VALUES (2, 'A123456789016', '2018-10-08', 10, '2021-03-01', 5, '2021-03-01');
 
 --Registers
 INSERT INTO Registers VALUES ('A123456789012', 1, '2020-09-01', 2, '2020-09-20');
@@ -396,25 +343,11 @@ INSERT INTO Registers VALUES ('A123456789017', 8, '2021-03-01', 3, '2021-03-03')
 INSERT INTO Registers VALUES ('A123456789014', 8, '2021-03-01', 3, '2021-03-03');
 INSERT INTO Registers VALUES ('A123456789031', 3, '2019-04-18', 1, '2019-04-18');
 INSERT INTO Registers VALUES ('A123456789032', 8, '2021-03-01', 3, '2021-03-03');
+INSERT INTO Registers VALUES ('A123456789032', 10, '2021-03-01', 8, '2021-03-01');
 
 --Cancels
 INSERT INTO Cancels VALUES (1, 1, '2020-09-01', 2, '2020-09-28', 35.91, 0);
 INSERT INTO Cancels VALUES (5, 4, '2020-09-01', 1, '2020-09-12', 0.0, 1);
 INSERT INTO Cancels VALUES (3, 8, '2021-03-01', 3, '2021-03-30', 0.0, 0);
+INSERT INTO Cancels VALUES (21, 10, '2021-03-01', 8, '2021-03-02', 71.91000000000001, 0);
 
---Pay_slips
-CALL pay_salary_for_month ('2020-01-01');
-CALL pay_salary_for_month ('2020-02-01');
-CALL pay_salary_for_month ('2020-03-01');
-CALL pay_salary_for_month ('2020-04-01');
-CALL pay_salary_for_month ('2020-05-01');
-CALL pay_salary_for_month ('2020-06-01');
-CALL pay_salary_for_month ('2020-07-01');
-CALL pay_salary_for_month ('2020-08-01');
-CALL pay_salary_for_month ('2020-09-01');
-CALL pay_salary_for_month ('2020-10-01');
-CALL pay_salary_for_month ('2020-11-01');
-CALL pay_salary_for_month ('2020-12-01');
-CALL pay_salary_for_month ('2021-01-01');
-CALL pay_salary_for_month ('2021-02-01');
-CALL pay_salary_for_month ('2021-03-01');
