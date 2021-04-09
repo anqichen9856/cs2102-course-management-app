@@ -1665,6 +1665,7 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
     r_m RECORD;
     curs_tie refcursor;
     r_tie RECORD;
+    title_array TEXT[];
   BEGIN
     current_year := EXTRACT(YEAR FROM CURRENT_DATE);
     OPEN curs_m;
@@ -1690,15 +1691,16 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
       -- find total registratino fee
       total_registration_fee := total_fee(r_m.eid);
 
+      title_array := '{}'
       -- title of course offering with the highest registration fee.
       OPEN curs_tie FOR (SELECT * FROM highest_total_fees(current_year, r_m.eid));
       LOOP
         FETCH curs_tie INTO r_tie;
         EXIT WHEN NOT FOUND;
-        course_title := r_tie.title;
-        RETURN NEXT;
+        title_array := title_array || r_tie.title;
       END LOOP;
       CLOSE curs_tie;
+      RETURN NEXT;
     END LOOP;
     CLOSE curs_m;
   END;
@@ -2234,6 +2236,7 @@ AS $$
     offering_end DATE;
     room_id INTEGER;
     room_deleted_session INTEGER;
+
   BEGIN
     students := student_in_session(OLD.course_id, OLD.launch_date, OLD.sid); --
     -- check if there are someone in the session
