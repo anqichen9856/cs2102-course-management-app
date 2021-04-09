@@ -1,6 +1,6 @@
 /* ROUNTINES */
 
-DROP PROCEDURE IF EXISTS add_employee (TEXT, TEXT, TEXT, TEXT, TEXT, NUMERIC, DATE, TEXT, TEXT ARRAY);
+DROP PROCEDURE IF EXISTS add_employee (TEXT, TEXT, TEXT, TEXT, TEXT, NUMERIC, DATE, TEXT, TEXT[]);
 DROP PROCEDURE IF EXISTS remove_employee (INTEGER, DATE);
 DROP PROCEDURE IF EXISTS add_customer (TEXT, TEXT, TEXT, TEXT, TEXT, DATE, INTEGER);
 DROP PROCEDURE IF EXISTS update_credit_card (INT, TEXT, DATE, INTEGER);
@@ -43,7 +43,7 @@ DROP FUNCTION IF EXISTS view_manager_report();
 
 -- 1
 CREATE OR REPLACE PROCEDURE add_employee (
-    name TEXT, address TEXT, phone TEXT, email TEXT, salary_type TEXT, salary NUMERIC, join_date DATE, category TEXT, course_areas TEXT ARRAY
+    name TEXT, address TEXT, phone TEXT, email TEXT, salary_type TEXT, salary NUMERIC, join_date DATE, category TEXT, course_areas TEXT[]
 )
 AS $$
 DECLARE
