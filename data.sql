@@ -39,14 +39,14 @@ BEGIN
             END IF;
 
             num_work_days := last_work_day - first_work_day + 1;
-            amount := TRUNC(monthly_salary * num_work_days / (last_day_of_month - first_day_of_month + 1), 2);
-            INSERT INTO Pay_slips VALUES (r.eid, date, amount, NULL, num_work_days);
+            amount := TRUNC(r.monthly_salary * num_work_days / (last_day_of_month - first_day_of_month + 1), 2);
+            INSERT INTO Pay_slips VALUES (r.eid, last_day_of_month, amount, NULL, num_work_days);
 
         ELSE  /* Part-time */
             SELECT COALESCE(SUM(end_time - start_time), 0) INTO num_work_hours FROM Sessions S
                 WHERE S.eid = r.eid AND S.date BETWEEN first_day_of_month AND last_day_of_month;
-            amount := TRUNC(hourly_rate * num_work_hours, 2);
-            INSERT INTO Pay_slips VALUES (r.eid, date, amount, num_work_hours, NULL);
+            amount := TRUNC(r.hourly_rate * num_work_hours, 2);
+            INSERT INTO Pay_slips VALUES (r.eid, last_day_of_month, amount, num_work_hours, NULL);
         END IF;
     END LOOP;
     CLOSE curs;
@@ -403,4 +403,18 @@ INSERT INTO Cancels VALUES (5, 4, '2020-09-01', 1, '2020-09-12', 0.0, 1);
 INSERT INTO Cancels VALUES (3, 8, '2021-03-01', 3, '2021-03-30', 0.0, 0);
 
 --Pay_slips
+CALL pay_salary_for_month ('2020-01-01');
+CALL pay_salary_for_month ('2020-02-01');
+CALL pay_salary_for_month ('2020-03-01');
+CALL pay_salary_for_month ('2020-04-01');
+CALL pay_salary_for_month ('2020-05-01');
+CALL pay_salary_for_month ('2020-06-01');
+CALL pay_salary_for_month ('2020-07-01');
+CALL pay_salary_for_month ('2020-08-01');
+CALL pay_salary_for_month ('2020-09-01');
+CALL pay_salary_for_month ('2020-10-01');
+CALL pay_salary_for_month ('2020-11-01');
+CALL pay_salary_for_month ('2020-12-01');
 CALL pay_salary_for_month ('2021-01-01');
+CALL pay_salary_for_month ('2021-02-01');
+CALL pay_salary_for_month ('2021-03-01');
