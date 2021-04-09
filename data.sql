@@ -3,7 +3,7 @@ INSERT INTO Employees VALUES (1, 'Jonathan Joestar', 'abc@gmail.com', '(+65) 123
 INSERT INTO Employees VALUES (2, 'Dio Brando', 'qqq@gmail.com', '(+65) 12345679', 'bcd street ', '2018-01-01', '2021-04-06');
 INSERT INTO Employees VALUES (3, 'Joseph Joestar', 'eee@gmail.com', '(+65) 12345680', 'def street', '2017-08-29', NULL);
 INSERT INTO Employees VALUES (4, 'Lisa Lisa', 'ooo@gmail.com', '(+65) 12345681', 'xxx street', '2016-01-03', NULL);
-INSERT INTO Employees VALUES (5, 'Alice Tan', 'hhh@gmail.com', '(+65) 12345682', 'yyy street', '2008-01-04', NULL);
+INSERT INTO Employees VALUES (5, 'Alice Tan', 'hhh@gmail.com', '(+65) 12345682', 'yyy street', '2008-01-04', '2021-03-07');
 INSERT INTO Employees VALUES (6, 'Charles Chen', 'halo@gmail.com', '(+65) 12345683', 'zzz street', '2019-01-05', NULL);
 INSERT INTO Employees VALUES (7, 'David Sun', 'hallo@gmail.com', '(+65) 12345684', 'woe street', '2009-01-06', '2021-03-05');
 INSERT INTO Employees VALUES (8, 'Frank Goh', 'hello@gmail.com', '(+65) 12345685', 'wow street', '2018-01-07', NULL);
@@ -11,7 +11,7 @@ INSERT INTO Employees VALUES (9, 'George Lim', 'bye@gmail.com', '(+65) 12345686'
 INSERT INTO Employees VALUES (10, 'William Kin', 'byee@gmail.com', '(+65) 12345687', 'aha street', '2014-01-09', NULL);
 INSERT INTO Employees VALUES (11, 'Emily Wang', 'yyqx@163.com', '(+86) 123456789', 'tf building level 18', '2019-07-16', NULL);
 INSERT INTO Employees VALUES (12, 'Olivia Law', 'wjk@163.com', '(+86) 123456700', 'tf building level 18', '2020-09-11', NULL);
-INSERT INTO Employees VALUES (13, 'Jean Haw', 'wy@163.com', '(+86) 88888888', 'tf building level 18', '2020-04-05', '2021-03-07');
+INSERT INTO Employees VALUES (13, 'Jean Haw', 'wy@163.com', '(+86) 88888888', 'tf building level 18', '2020-04-05', NULL);
 INSERT INTO Employees VALUES (14, 'Alex Guo', 'mjq@qq.com', '(+86) 13955581324', 'tf building level 18', '2021-03-28', NULL);
 INSERT INTO Employees VALUES (15, 'James Smith', 'hcy@outlook.com', '(+86) 123789456', 'tianyuchuanmei', '2019-03-14', NULL);
 INSERT INTO Employees VALUES (16, 'Joel Hong', 'joelhong@gmail.com', '(+65) 90175679', 'hwa chong institution', '2017-09-30', NULL);
@@ -183,7 +183,7 @@ INSERT INTO Sessions VALUES (4, '2020-09-01', 1, '2020-10-01', 15.0, 17.0, 4, 16
 INSERT INTO Sessions VALUES (4, '2020-09-01', 2, '2020-10-05', 9.0, 11.0, 4, 16);
 INSERT INTO Sessions VALUES (4, '2021-03-10', 1, '2021-04-09', 15.0, 17.0, 4, 16);
 INSERT INTO Sessions VALUES (4, '2021-03-10', 2, '2021-04-15', 16.0, 18.0, 4, 16);
-INSERT INTO Sessions VALUES (5, '2020-05-01', 1, '2020-06-01', 9.0, 10.5, 5, 20);
+INSERT INTO Sessions VALUES (5, '2020-05-01', 1, '2020-06-01', 9.0, 10.5, 16, 20);
 INSERT INTO Sessions VALUES (5, '2020-05-01', 2, '2020-06-10', 10.0, 11.5, 16, 19);
 INSERT INTO Sessions VALUES (5, '2021-01-01', 1, '2021-02-01', 15.0, 16.5, 5, 20);
 INSERT INTO Sessions VALUES (5, '2021-01-01', 2, '2021-02-03', 15.0, 16.5, 5, 19);
