@@ -116,7 +116,7 @@ BEGIN
         SELECT 1 FROM Offerings WHERE eid = eid_to_remove AND registration_deadline > depart_date_to_update
     ) THEN RAISE EXCEPTION 'Update operation is rejected: registration deadline of some course offering is after this administrator’s departure date.';
     ELSEIF EXISTS (
-        SELECT 1 FROM Sessions WHERE eid = eid_to_remove AND launch_date > depart_date_to_update
+        SELECT 1 FROM Sessions WHERE eid = eid_to_remove AND date > depart_date_to_update
     ) THEN RAISE EXCEPTION 'Update operation is rejected: some course session taught by this instructor starts after his/her departure date.';
     ELSEIF EXISTS (
         SELECT 1 FROM Course_areas WHERE eid = eid_to_remove
@@ -1868,7 +1868,7 @@ CREATE OR REPLACE FUNCTION credit_card_own_before_expiry_date_func() RETURNS TRI
 AS $$
 BEGIN
     IF (SELECT expiry_date FROM Credit_cards C WHERE C.number = NEW.card_number) <= NEW.from_date THEN
-        RAISE EXCEPTION 'Credit card % has already expired.', NEW.number;
+        RAISE EXCEPTION 'Credit card % has already expired.', NEW.card_number;
     END IF;
     RETURN NULL;
 END;
