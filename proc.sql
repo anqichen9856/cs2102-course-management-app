@@ -1,16 +1,30 @@
 DROP PROCEDURE IF EXISTS add_employee, remove_employee, add_customer, update_credit_card, add_course;
 DROP FUNCTION IF EXISTS find_instructors, pay_salary, promote_courses;
 DROP PROCEDURE IF EXISTS add_course_offering(INT, NUMERIC, DATE, DATE, INT, INT, TEXT[][]);
-DROP PROCEDURE IF EXISTS add_course_package(TEXT, INT, DATE, DATE, NUMERIC); 
-DROP FUNCTION IF EXISTS get_available_instructors(INT,DATE,DATE); 
+DROP PROCEDURE IF EXISTS add_course_package(TEXT, INT, DATE, DATE, NUMERIC);
+DROP FUNCTION IF EXISTS get_available_instructors(INT,DATE,DATE);
 DROP FUNCTION IF EXISTS find_rooms(DATE,NUMERIC,NUMERIC);
 DROP FUNCTION IF EXISTS get_available_rooms(DATE,DATE);
 DROP FUNCTION IF EXISTS get_available_course_packages();
 DROP FUNCTION IF EXISTS top_packages, popular_courses;
 DROP PROCEDURE IF EXISTS buy_course_package, register_session;
 DROP FUNCTION IF EXISTS get_my_course_package, get_available_course_offerings, get_available_course_sessions, get_my_registrations, view_summary_report;
-DROP PROCEDURE IF EXISTS update_course_session, cancel_registration, update_instructor, update_room, remove_session, add_session;
-DROP FUNCTION IF EXISTS find_cards, in_registers, student_in_session, check_cancel, fee_one_offering, total_fee, highest_total_fees, view_manager_report;
+
+DROP PROCEDURE IF EXISTS update_course_session(INTEGER, INTEGER, DATE, INTEGER);
+DROP PROCEDURE IF EXISTS cancel_registration(INTEGER, INTEGER, DATE);
+DROP PROCEDURE IF EXISTS update_instructor(INTEGER, DATE, INTEGER, INTEGER);
+DROP PROCEDURE IF EXISTS update_room(INTEGER, DATE, INTEGER, INTEGER);
+DROP PROCEDURE IF EXISTS remove_session(INTEGER, DATE, INTEGER);
+DROP PROCEDURE IF EXISTS add_session(INTEGER, DATE, INTEGER, DATE, NUMERIC(4,2), INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS find_cards(INTEGER); 
+DROP FUNCTION IF EXISTS in_registers(INTEGER, INTEGER, DATE);
+DROP FUNCTION IF EXISTS student_in_session(INTEGER, DATE, INTEGER);
+DROP FUNCTION IF EXISTS check_cancel(INTEGER, DATE, INTEGER);
+DROP FUNCTION IF EXISTS fee_one_offering(INTEGER, DATE, NUMERIC);
+DROP FUNCTION IF EXISTS total_fee(INTEGER);
+DROP FUNCTION IF EXISTS highest_total_fees(INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS view_manager_report();
+
 
 -- 1
 CREATE OR REPLACE PROCEDURE add_employee (
@@ -21,18 +35,18 @@ DECLARE
     new_eid INTEGER;
     area TEXT;
 BEGIN
-    IF salary_type NOT IN ('monthly', 'hourly') THEN 
+    IF salary_type NOT IN ('monthly', 'hourly') THEN
         RAISE EXCEPTION 'Salary type must be one of the following: monthly, hourly.';
     END IF;
-    IF category NOT IN ('administrator', 'manager', 'instructor') THEN 
+    IF category NOT IN ('administrator', 'manager', 'instructor') THEN
         RAISE EXCEPTION 'Category of employee must be one of the following: administrator, manager, instructor.';
     END IF;
-    
+
     SELECT COALESCE(MAX(eid), 0) + 1 INTO new_eid FROM Employees;
     INSERT INTO Employees VALUES (new_eid, name, email, phone, address, join_date, NULL);
     IF category = 'manager' THEN
         -- must be full-time
-        IF salary_type <> 'monthly' THEN 
+        IF salary_type <> 'monthly' THEN
             RAISE EXCEPTION 'Salary type of manager must be monthly as all managers are full-time.';
         END IF;
         INSERT INTO Full_time_Emp VALUES (new_eid, salary);
@@ -56,14 +70,14 @@ BEGIN
             INSERT INTO Full_time_Emp VALUES (new_eid, salary);
             INSERT INTO Full_time_instructors VALUES (new_eid);
         -- Part-time
-        ELSE 
+        ELSE
             INSERT INTO Part_time_Emp VALUES (new_eid, salary);
             INSERT INTO Part_time_instructors VALUES (new_eid);
         END IF;
-    ELSE 
+    ELSE
         -- administrator
         -- must be full-time
-        IF salary_type <> 'monthly' THEN 
+        IF salary_type <> 'monthly' THEN
             RAISE EXCEPTION 'Salary type of administrator must be monthly as all administrators are full-time.';
         END IF;
         -- course areas must be empty
@@ -87,7 +101,7 @@ BEGIN
         SELECT 1 FROM Offerings WHERE eid = eid_to_remove AND registration_deadline > depart_date_to_update
     ) THEN RAISE EXCEPTION 'Update operation is rejected: registration deadline of some course offering is after this administrator’s departure date.';
     ELSEIF EXISTS (
-        SELECT 1 FROM Sessions WHERE eid = eid_to_remove AND launch_date > depart_date_to_update 
+        SELECT 1 FROM Sessions WHERE eid = eid_to_remove AND launch_date > depart_date_to_update
     ) THEN RAISE EXCEPTION 'Update operation is rejected: some course session taught by this instructor starts after his/her departure date.';
     ELSEIF EXISTS (
         SELECT 1 FROM Course_areas WHERE eid = eid_to_remove
@@ -137,8 +151,8 @@ $$ LANGUAGE plpgsql;
 --6
 /*
 - instructor must be active employee (depart_date is null or >= session_date)
-- an instructor who is assigned to teach a course session must be specialized in that course area. 
-- Each instructor can teach at most one course session at any hour. 
+- an instructor who is assigned to teach a course session must be specialized in that course area.
+- Each instructor can teach at most one course session at any hour.
     - s,e are new session
     - overlap：s <= s' <= e or s <= e' <= e (mutual)
 - there must be at least one hour of break between any two course sessions that the instructor is teaching
@@ -148,29 +162,29 @@ $$ LANGUAGE plpgsql;
     - the month that contains session_date
 */
 CREATE OR REPLACE FUNCTION find_instructors (cid INTEGER, session_date DATE, session_start_time NUMERIC)
-RETURNS TABLE (eid INTEGER, name TEXT) AS $$ 
+RETURNS TABLE (eid INTEGER, name TEXT) AS $$
 DECLARE
     curs CURSOR FOR (
         SELECT DISTINCT X.eid, X.name, X.area
         FROM (Instructors NATURAL JOIN Employees NATURAL JOIN Specializes) X
         WHERE X.depart_date IS NULL OR X.depart_date >= session_date
-    ); 
+    );
     r RECORD;
     a TEXT;
     d NUMERIC;
     session_end_time NUMERIC;
     total_hours_that_month NUMERIC;
-BEGIN 
+BEGIN
     SELECT course_area, duration INTO a, d FROM Courses WHERE course_id = cid;
     session_end_time := session_start_time + d;
-    OPEN curs; 
+    OPEN curs;
     LOOP
         FETCH curs INTO r;
         EXIT WHEN NOT FOUND;
-        SELECT COALESCE(SUM(end_time - start_time), 0) + d INTO total_hours_that_month 
-            FROM Sessions S WHERE S.eid = r.eid AND 
-            S.date BETWEEN 
-                DATE_TRUNC('month', session_date)::DATE AND 
+        SELECT COALESCE(SUM(end_time - start_time), 0) + d INTO total_hours_that_month
+            FROM Sessions S WHERE S.eid = r.eid AND
+            S.date BETWEEN
+                DATE_TRUNC('month', session_date)::DATE AND
                 (DATE_TRUNC('month', session_date) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
         IF r.area = a
             AND NOT EXISTS (
@@ -178,7 +192,7 @@ BEGIN
                 WHERE S.eid = r.eid
                 AND S.date = session_date
                 AND (
-                    (S.start_time BETWEEN session_start_time AND session_end_time) 
+                    (S.start_time BETWEEN session_start_time AND session_end_time)
                     OR (S.end_time BETWEEN session_start_time AND session_end_time)
                     OR (session_start_time BETWEEN S.start_time AND S.end_time)
                     OR (session_end_time BETWEEN S.start_time AND S.end_time)
@@ -191,16 +205,16 @@ BEGIN
                 AND (
                     (S.end_time > session_start_time - 1 AND S.end_time <= session_start_time)
                     OR (S.start_time >= session_end_time AND S.start_time < session_end_time + 1)
-                ) 
+                )
             )
-            AND (r.eid IN (SELECT FI.eid FROM Full_time_instructors FI) 
+            AND (r.eid IN (SELECT FI.eid FROM Full_time_instructors FI)
                     OR total_hours_that_month <= 30)
         THEN
             eid := r.eid;
             name := r.name;
             RETURN NEXT;
         END IF;
-    END LOOP; 
+    END LOOP;
     CLOSE curs;
 END;
 $$ LANGUAGE plpgsql;
@@ -231,11 +245,11 @@ BEGIN
         FETCH curs_instructor INTO r_instructor;
         EXIT WHEN NOT FOUND;
         -- get total hours that month, if no sessions taught, 0 hour
-        SELECT COALESCE(SUM(end_time - start_time),0) INTO total_hours_that_month 
-        FROM Sessions S 
- 		WHERE S.eid = r_instructor.eid 
+        SELECT COALESCE(SUM(end_time - start_time),0) INTO total_hours_that_month
+        FROM Sessions S
+ 		WHERE S.eid = r_instructor.eid
  		AND S.date BETWEEN
-                 DATE_TRUNC('month', start_date)::DATE AND 
+                 DATE_TRUNC('month', start_date)::DATE AND
                  (DATE_TRUNC('month', start_date) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
         IF r_instructor.area = area AND ((r_instructor.eid IN (SELECT FI.eid FROM Full_time_instructors FI) OR total_hours_that_month + d <= 30))
         THEN
@@ -244,14 +258,14 @@ BEGIN
             hours := total_hours_that_month;
             -- get date and available hours
 		    MOVE FIRST FROM curs_day;
-            LOOP 
+            LOOP
                 FETCH curs_day INTO r_day;
                 EXIT WHEN NOT FOUND;
                 day := r_day.as_of_date::DATE;
                 hours_array := '{}';
                 curr_hour := 9;
                 IF (r_instructor.depart_date IS NULL OR r_instructor.depart_date >= end_date)
-                THEN 
+                THEN
                     LOOP
                         EXIT WHEN curr_hour >= 18;
                         IF (curr_hour < 12 OR curr_hour >= 14)
@@ -261,20 +275,20 @@ BEGIN
                             FROM Sessions S
                             WHERE S.date = day
                             AND S.eid = r_instructor.eid
-                            AND ((curr_hour = S.start_time) 
-                                    OR (S.start_time > curr_hour AND S.start_time < curr_hour + 1) 
+                            AND ((curr_hour = S.start_time)
+                                    OR (S.start_time > curr_hour AND S.start_time < curr_hour + 1)
                                     OR (curr_hour > S.start_time AND curr_hour < S.end_time))
-                        ) 
+                        )
                         -- no lesson before and after curr_hour
                         AND NOT EXISTS (
-                            SELECT 1 
+                            SELECT 1
                             FROM Sessions S
                             WHERE S.date = day
                             AND S.eid = r_instructor.eid
                             AND (
                                 (S.end_time > curr_hour - 1 AND S.end_time <= curr_hour)
                                 OR (S.start_time >= curr_hour AND S.start_time < curr_hour + 1)
-                            ) 
+                            )
                         )
                         THEN hours_array := hours_array || curr_hour;
                         END IF;
@@ -306,14 +320,14 @@ BEGIN
         FETCH curs INTO r;
         EXIT WHEN NOT FOUND;
         IF NOT EXISTS (
-            SELECT 1 
+            SELECT 1
             FROM Sessions S
             WHERE S.rid = r.rid
             AND S.date = session_date
             AND ((start_hour >= S.start_time AND start_hour < S.end_time) OR (end_hour > S.start_time AND end_hour <= S.end_time)
                 OR (S.start_time >= start_hour AND S.start_time < end_hour) OR (S.end_time > start_hour AND S.end_time <= end_hour))
         )
-        THEN 
+        THEN
             rid := r.rid;
             RETURN NEXT;
         END IF;
@@ -357,8 +371,8 @@ BEGIN
                     FROM Sessions S
                     WHERE S.date = day
                     AND S.rid = r_room.rid
-                    AND ((curr_hour = S.start_time) 
-							 	OR (S.start_time > curr_hour AND S.start_time < curr_hour + 1) 
+                    AND ((curr_hour = S.start_time)
+							 	OR (S.start_time > curr_hour AND S.start_time < curr_hour + 1)
 							 	OR (curr_hour > S.start_time AND curr_hour < S.end_time))
 				)
                 THEN hours_array := hours_array || curr_hour;
@@ -399,7 +413,7 @@ BEGIN
         IF NOT EXISTS (
             SELECT 1 FROM find_instructors(cid, date, start_hour)
         )
-        THEN 
+        THEN
             RAISE EXCEPTION 'No available instructor for session on %, start hour %, rid %', date, start_hour, rid;
         END IF;
 
@@ -408,16 +422,16 @@ BEGIN
         SELECT MIN(I.eid) INTO instructor_id FROM find_instructors(cid, date, start_hour) I;
 		SELECT C.duration INTO duration FROM Courses C WHERE C.course_id = cid;
         INSERT INTO Sessions VALUES (cid, launch_date, sid, date, start_hour, start_hour+duration, instructor_id, curr_rid);
-        
-        IF date < start_date 
+
+        IF date < start_date
         THEN start_date := date;
         END IF;
-        
+
         IF date > end_date
         THEN end_date := date;
         END IF;
 
-        -- if rid fails foreign key constraint, the adding will fail at add_session step. 
+        -- if rid fails foreign key constraint, the adding will fail at add_session step.
           SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = curr_rid;
           seating_capacity := seating_capacity + curr_capacity;
     END LOOP;
@@ -460,7 +474,7 @@ BEGIN
     LOOP
         FETCH curs INTO r;
         EXIT WHEN NOT FOUND;
-        IF curr_date >= r.sale_start_date AND curr_date <= r.sale_end_date 
+        IF curr_date >= r.sale_start_date AND curr_date <= r.sale_end_date
         THEN
             name := r.name;
             num_free_registrations := r.num_free_registrations;
@@ -487,11 +501,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM Course_packages WHERE Course_packages.package_id = packageId) THEN
   RAISE EXCEPTION 'Package ID % is not valid', packageId;
   END IF;
-  SELECT num_free_registrations FROM Course_packages P WHERE P.package_id = packageId INTO n; 
+  SELECT num_free_registrations FROM Course_packages P WHERE P.package_id = packageId INTO n;
   SELECT card_number FROM Owns O WHERE O.cust_id = custId ORDER BY O.from_date DESC LIMIT 1 INTO cardNumber;
   INSERT INTO Buys VALUES (packageId, cardNumber, CURRENT_DATE, n);
   RAISE NOTICE 'The purchase of package % by customer % on % is successful', packageId, custId, CURRENT_DATE;
-END;                
+END;
 $$ LANGUAGE plpgsql;
 -- CALL buy_course_package(1,1);
 -- SELECT * FROM Buys
@@ -514,24 +528,24 @@ RAISE EXCEPTION 'Customer ID % is not valid', custId;
 END IF;
 
 --check if the customer has an active or partially active package
-IF EXISTS (SELECT 1 FROM Buys NATURAL JOIN Owns WHERE cust_id = custId) THEN 
-  SELECT date, package_id, card_number, num_remaining_redemptions INTO buyDate, packageId, cardNumber, remainingRedem 
+IF EXISTS (SELECT 1 FROM Buys NATURAL JOIN Owns WHERE cust_id = custId) THEN
+  SELECT date, package_id, card_number, num_remaining_redemptions INTO buyDate, packageId, cardNumber, remainingRedem
   FROM Buys NATURAL JOIN Owns WHERE cust_id = custId
   ORDER BY date DESC LIMIT 1;
   IF remainingRedem = 0 THEN
     IF EXISTS(
-    SELECT 1 FROM Redeems R 
+    SELECT 1 FROM Redeems R
     WHERE R.package_id = packageId AND R.card_number = cardNumber AND R.buy_date = buyDate
     AND EXISTS (SELECT 1 FROM Sessions S WHERE S.course_id = R.course_id AND S.launch_date = R.launch_date AND S.sid = R.sid AND CURRENT_DATE <= S.date - 7)
-    ) THEN 
+    ) THEN
     hasPackage := 1;
     END IF;
-  ELSE 
-    hasPackage := 1;  
-  END IF; 
-END IF; 
+  ELSE
+    hasPackage := 1;
+  END IF;
+END IF;
 
-IF hasPackage = 1 THEN 
+IF hasPackage = 1 THEN
   With count_cancels AS (
     SELECT count(*) AS c1, course_id, launch_date, sid
     FROM Cancels
@@ -545,10 +559,10 @@ IF hasPackage = 1 THEN
   ), redeemed_sessions AS (
     SELECT S.course_id, S.launch_date, S.sid, C.title AS course_name, S.date AS session_date, S.start_time AS session_start_hour
     FROM Courses C, Sessions S, Redeems R
-    WHERE R.package_id = packageId AND R.card_number = cardNumber AND R.buy_date = buyDate 
+    WHERE R.package_id = packageId AND R.card_number = cardNumber AND R.buy_date = buyDate
     AND C.course_id = S.course_id AND S.course_id = R.course_id AND S.sid = R.sid AND S.launch_date = R.launch_date
   )
-  
+
   SELECT row_to_json(info) INTO result
   FROM (
     SELECT name, date AS purchase_date, price, num_free_registrations, num_remaining_redemptions, (SELECT json_agg(sessions) FROM (
@@ -560,21 +574,21 @@ IF hasPackage = 1 THEN
     WHERE package_id = packageID AND date = buyDate AND card_number = cardNumber
   ) info;
 END IF;
- 
+
 RETURN result;
 
-END;             
+END;
 $$ LANGUAGE plpgsql;
 --select * FROM get_my_course_package(5);
 --select * from buys;
 --select * from redeems;
 
 
---15 retrieve all the available course offerings that could be registered.                  
+--15 retrieve all the available course offerings that could be registered.
 CREATE OR REPLACE FUNCTION get_available_course_offerings()
-RETURNS TABLE(course_title TEXT, course_area TEXT, start_date DATE, end_date DATE, registration_deadline DATE, course_fees NUMERIC, num_remaining_seats INT) 
+RETURNS TABLE(course_title TEXT, course_area TEXT, start_date DATE, end_date DATE, registration_deadline DATE, course_fees NUMERIC, num_remaining_seats INT)
 AS $$
-SELECT title, course_area, start_date, end_date, registration_deadline, fees, (seating_capacity - count_registers - count_redeems + count_cancels) AS num_remaining_seats               
+SELECT title, course_area, start_date, end_date, registration_deadline, fees, (seating_capacity - count_registers - count_redeems + count_cancels) AS num_remaining_seats
 FROM (
   SELECT title, course_area, start_date, end_date, registration_deadline, fees, seating_capacity
   , COALESCE (count1, 0) AS count_registers
@@ -586,49 +600,49 @@ FROM (
   NATURAL LEFT OUTER JOIN(SELECT course_id, launch_date, count(*) AS count2 FROM Redeems GROUP BY course_id, launch_date) AS R2
   NATURAL LEFT OUTER JOIN(SELECT course_id, launch_date, count(*) AS count3 FROM Redeems GROUP BY course_id, launch_date) AS R3
 ) AS OO
-WHERE registration_deadline >= CURRENT_DATE AND (count_registers + count_redeems - count_cancels) < seating_capacity  
-ORDER BY registration_deadline, title;                                          
-$$ LANGUAGE sql;                 
+WHERE registration_deadline >= CURRENT_DATE AND (count_registers + count_redeems - count_cancels) < seating_capacity
+ORDER BY registration_deadline, title;
+$$ LANGUAGE sql;
 --TEST select * from get_available_course_offerings()
 
---16                
+--16
 CREATE OR REPLACE FUNCTION get_available_course_sessions(courseId INT, launchDate DATE)
-RETURNS TABLE(session_date DATE, start_time NUMERIC, instructor_name TEXT, num_remaining_seats INT) 
+RETURNS TABLE(session_date DATE, start_time NUMERIC, instructor_name TEXT, num_remaining_seats INT)
 AS $$
 BEGIN
 IF NOT EXISTS (SELECT 1 FROM Offerings WHERE course_id = courseId AND launch_date = launchDate) THEN
 RAISE EXCEPTION 'Course Offering of % launched on % is invalid', courseId, launchDate;
 END IF;
 IF NOT EXISTS (SELECT 1 FROM Offerings WHERE course_id = courseId AND launch_date = launchDate AND registration_deadline >= CURRENT_DATE) THEN
-RAISE EXCEPTION 'Registration deadline for course Offering of % launched on % is passed', courseId, launchDate; 
+RAISE EXCEPTION 'Registration deadline for course Offering of % launched on % is passed', courseId, launchDate;
 END IF;
 
 RETURN QUERY SELECT SS.session_date, SS.start_time, SS.instructor_name, (SS.seating_capacity - SS.count_registers - SS.count_redeems + SS.count_cancels)::INT AS num_remaining_seats
-FROM ( 
+FROM (
   SELECT S.date AS session_date, S.start_time, E.name AS instructor_name, R.seating_capacity
   , COALESCE (count1, 0) AS count_registers
   , COALESCE (count2, 0) AS count_redeems
   , COALESCE (count3, 0) AS count_cancels
   FROM Sessions S
   NATURAL JOIN Employees E
-  NATURAL JOIN Rooms R               
+  NATURAL JOIN Rooms R
   NATURAL LEFT OUTER JOIN (SELECT course_id, launch_date, sid, count(*) AS count1 FROM Registers GROUP BY course_id, launch_date, sid) AS R1
   NATURAL LEFT OUTER JOIN (SELECT course_id, launch_date, sid, count(*) AS count2 FROM Redeems GROUP BY course_id, launch_date, sid) AS R2
   NATURAL LEFT OUTER JOIN (SELECT course_id, launch_date, sid, count(*) AS count3 FROM Cancels GROUP BY course_id, launch_date, sid) AS R3
-  WHERE course_id = courseId AND launch_date = launchDate 
-) AS SS                                                                 
-WHERE SS.count_registers + SS.count_redeems - SS.count_cancels < SS.seating_capacity 
+  WHERE course_id = courseId AND launch_date = launchDate
+) AS SS
+WHERE SS.count_registers + SS.count_redeems - SS.count_cancels < SS.seating_capacity
 ORDER BY SS.session_date, SS.start_time;
 END;
-$$ LANGUAGE plpgsql; 
---select * from get_available_course_sessions(2, '2022-09-01') RETURN error message'Course Offering...is invalid' 
+$$ LANGUAGE plpgsql;
+--select * from get_available_course_sessions(2, '2022-09-01') RETURN error message'Course Offering...is invalid'
 --select * from get_available_course_sessions(1, '2020-09-01') RETURN error message'Registration deadline...is passed'
 --select * from get_available_course_sessions(1, '2020-09-01') RETURN an empty table
---select * from get_available_course_sessions(7, '2021-03-30') RETURN 3 rows   
+--select * from get_available_course_sessions(7, '2021-03-30') RETURN 3 rows
 
-                 
---17 either update Registers or Redeems--check if available session--check if payment method is correct         
---(0 for credit card or 1 for redemption from active package)       
+
+--17 either update Registers or Redeems--check if available session--check if payment method is correct
+--(0 for credit card or 1 for redemption from active package)
 CREATE OR REPLACE PROCEDURE register_session(custId INT, courseId INT, launchDate DATE, sessionNumber INT, paymentMethod INT)
 AS $$
 DECLARE
@@ -641,26 +655,26 @@ IF NOT EXISTS (SELECT 1 FROM Customers WHERE Customers.cust_id = custId) THEN
 RAISE EXCEPTION 'Customer ID % is not valid', custId;
 END IF;
 IF NOT EXISTS (SELECT 1 FROM Sessions WHERE course_id = courseId AND launch_date = launchDate AND sid = sessionNumber) THEN
-RAISE EXCEPTION 'The session % of course offering of % launched on % is invalid', sessionNumber, courseId, launchDate;  
+RAISE EXCEPTION 'The session % of course offering of % launched on % is invalid', sessionNumber, courseId, launchDate;
 END IF;
 IF paymentMethod != 0 AND paymentMethod != 1 THEN
 RAISE EXCEPTION 'Payment method must be either INTEGER 0 or 1, which represent using credit card or redemption from active package respectively';
 END IF;
 
 --start check payment method
-IF paymentMethod = 1 THEN 
+IF paymentMethod = 1 THEN
     SELECT B.package_id, B.card_number, B.date INTO packageId, cardNumber, buyDate
     FROM Buys B
     WHERE EXISTS (SELECT 1 FROM Owns O WHERE O.cust_id = custId AND O.card_number = B.card_number)
     AND B.num_remaining_redemptions >= 1
     ORDER BY B.num_remaining_redemptions LIMIT 1;
-    IF packageId ISNULL THEN 
-      RAISE EXCEPTION 'Customer % has no active package', custId; 
+    IF packageId ISNULL THEN
+      RAISE EXCEPTION 'Customer % has no active package', custId;
     END IF;
     INSERT INTO Redeems VALUES(packageId, cardNumber, buyDate, courseId, launchDate, sessionNumber, CURRENT_DATE);
     RAISE NOTICE 'The session successfully redeemed with package %', packageId;
-ELSE 
-    SELECT O.card_number INTO cardNumber 
+ELSE
+    SELECT O.card_number INTO cardNumber
     FROM Owns O
     WHERE O.cust_id = custId AND EXISTS (SELECT 1 FROM Credit_cards C WHERE C.number = O.card_number AND C.expiry_date >= CURRENT_DATE)
     ORDER BY O.from_date DESC
@@ -671,14 +685,14 @@ END IF;
 --end check payment method
 END;
 $$ LANGUAGE plpgsql;
--- call register_session(1, 7, '2021-03-30', 1, 0); select * from registers; 
+-- call register_session(1, 7, '2021-03-30', 1, 0); select * from registers;
 
 
---18 search through registers and redeems 
+--18 search through registers and redeems
 CREATE OR REPLACE FUNCTION get_my_registrations(custId INT)
-RETURNS TABLE(course_title TEXT, fees NUMERIC, session_date DATE, start_time NUMERIC, duration NUMERIC, instructor_name TEXT) 
+RETURNS TABLE(course_title TEXT, fees NUMERIC, session_date DATE, start_time NUMERIC, duration NUMERIC, instructor_name TEXT)
 AS $$
-DECLARE 
+DECLARE
   currentDate DATE;
   currentHour NUMERIC;
   currentMinute NUMERIC;
@@ -707,7 +721,7 @@ RETURN QUERY WITH count1 AS (
 ), count3 AS (
   SELECT COUNT(*) AS c3, course_id, launch_date, sid
   FROM Cancels
-  WHERE cust_id = custId 
+  WHERE cust_id = custId
   GROUP BY course_id, launch_date, sid
 ), course_sessions AS (
   SELECT C.title, C.course_id, O.launch_date, O.fees, S.sid, S.date AS session_date, S.start_time, C.duration, E.name AS instructor_name
@@ -715,11 +729,11 @@ RETURN QUERY WITH count1 AS (
   WHERE C.course_id = O.course_id AND O.course_id = S.course_id AND O.launch_date = S.launch_date AND S.date >= currentDate
   AND S.eid = E.eid
 )
---check date 
+--check date
 SELECT course_sessions.title, course_sessions.fees, course_sessions.session_date, course_sessions.start_time, course_sessions.duration, course_sessions.instructor_name
 FROM course_sessions NATURAL LEFT OUTER JOIN count1 NATURAL LEFT OUTER JOIN count2 NATURAL LEFT OUTER JOIN count3
 WHERE (course_sessions.session_date > currentDate OR (course_sessions.start_time + course_sessions.duration)>toHour)
-AND (COALESCE (count1.c1, 0)+COALESCE (count2.c2, 0)-COALESCE (count3.c3, 0)) = 1 
+AND (COALESCE (count1.c1, 0)+COALESCE (count2.c2, 0)-COALESCE (count3.c3, 0)) = 1
 ORDER BY course_sessions.session_date, course_sessions.start_time;
 
 END;
@@ -1195,40 +1209,40 @@ $$ LANGUAGE  plpgsql;
 
 - For a full-time employees, number of work hours for the month and hourly rate should be null.
 - salary amount = monthly salary * number of work days for the month / number of days in the month
-  The number of work days for the month is given by (last work day - first work day + 1). 
+  The number of work days for the month is given by (last work day - first work day + 1).
   The first work day = joined date if joined date is within the month of payment; otherwise 1.
-  The last work day = departed date if departed date is within the month of payment; otherwise the number of days in the month.   
+  The last work day = departed date if departed date is within the month of payment; otherwise the number of days in the month.
 
-- For a part-time employees, number of work days for the month and monthly salary should be null. 
+- For a part-time employees, number of work days for the month and monthly salary should be null.
   The salary amount = hourly rate * number of work hours for the month
 */
 
 CREATE OR REPLACE FUNCTION pay_salary ()
-RETURNS TABLE (eid INTEGER, name TEXT, status TEXT, num_work_days INTEGER, num_work_hours NUMERIC, hourly_rate NUMERIC, monthly_salary NUMERIC, amount NUMERIC) AS $$ 
+RETURNS TABLE (eid INTEGER, name TEXT, status TEXT, num_work_days INTEGER, num_work_hours NUMERIC, hourly_rate NUMERIC, monthly_salary NUMERIC, amount NUMERIC) AS $$
 DECLARE
     curs CURSOR FOR (
         SELECT X.eid, X.name, X.monthly_salary, X.hourly_rate, X.join_date, X.depart_date
         FROM (Employees NATURAL LEFT JOIN Full_time_Emp NATURAL LEFT JOIN Part_time_Emp) X
         WHERE X.depart_date IS NULL OR X.depart_date >= DATE_TRUNC('month', CURRENT_DATE)::DATE /* don't consider employees departed before this month */
-    ); 
+    );
     r RECORD;
     first_day_of_month DATE;
     last_day_of_month DATE;
     first_work_day DATE;
     last_work_day DATE;
-BEGIN 
-    OPEN curs; 
+BEGIN
+    OPEN curs;
     LOOP
         FETCH curs INTO r;
         EXIT WHEN NOT FOUND;
-        
+
         first_day_of_month := DATE_TRUNC('month', CURRENT_DATE)::DATE;
         last_day_of_month := (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day')::DATE;
 
         IF r.hourly_rate IS NULL THEN /* Full-time */
             IF r.join_date BETWEEN first_day_of_month AND last_day_of_month THEN
                 first_work_day := r.join_date;
-            ELSE 
+            ELSE
                 first_work_day := first_day_of_month;
             END IF;
 
@@ -1242,27 +1256,27 @@ BEGIN
             name := r.name;
             status := 'Full-time';
             num_work_days := last_work_day - first_work_day + 1;
-            num_work_hours := NULL; 
-            hourly_rate := NULL; 
+            num_work_hours := NULL;
+            hourly_rate := NULL;
             monthly_salary := r.monthly_salary;
             amount := TRUNC(monthly_salary * num_work_days / (last_day_of_month - first_day_of_month + 1), 2);
             INSERT INTO Pay_slips VALUES (eid, CURRENT_DATE, amount, num_work_hours, num_work_days);
             RETURN NEXT;
-        
+
         ELSE  /* Part-time */
-            SELECT COALESCE(SUM(end_time - start_time), 0) INTO num_work_hours FROM Sessions S 
+            SELECT COALESCE(SUM(end_time - start_time), 0) INTO num_work_hours FROM Sessions S
                 WHERE S.eid = r.eid AND S.date BETWEEN first_day_of_month AND last_day_of_month;
             eid := r.eid;
             name := r.name;
             status := 'Part-time';
             num_work_days := NULL;
-            hourly_rate := r.hourly_rate; 
+            hourly_rate := r.hourly_rate;
             monthly_salary := NULL;
             amount := TRUNC(hourly_rate * num_work_hours, 2);
             INSERT INTO Pay_slips VALUES (eid, CURRENT_DATE, amount, num_work_hours, num_work_days);
             RETURN NEXT;
         END IF;
-    END LOOP; 
+    END LOOP;
     CLOSE curs;
 END;
 $$ LANGUAGE plpgsql;
@@ -1272,39 +1286,39 @@ $$ LANGUAGE plpgsql;
 /*
 - inactive customer: has not registered for some course offering in the last six months (inclusive of the current month)
 
-- A course area A is of interest to a customer C if there is some course offering in area A among the three most recent course offerings registered by C. 
+- A course area A is of interest to a customer C if there is some course offering in area A among the three most recent course offerings registered by C.
 - If a customer has not yet registered for any course offering, we assume that every course area is of interest to that customer.
 
-Returns a table of records with information for each inactive customer: 
-    customer identifier, 
-    customer name, 
-    course area A that is of interest to the customer, 
-    course identifier of a course C in area A, 
-    course title of C, 
-    launch date of course offering of course C that still accepts registrations, 
-    course offering’s registration deadline, 
-    fees for the course offering. 
-    
+Returns a table of records with information for each inactive customer:
+    customer identifier,
+    customer name,
+    course area A that is of interest to the customer,
+    course identifier of a course C in area A,
+    course title of C,
+    launch date of course offering of course C that still accepts registrations,
+    course offering’s registration deadline,
+    fees for the course offering.
+
 The output is sorted in ascending order of customer identifier and course offering’s registration deadline.
 */
 
 CREATE OR REPLACE FUNCTION promote_courses ()
-RETURNS TABLE (cust_id INTEGER, name TEXT, course_area TEXT, course_id INTEGER, title TEXT, launch_date DATE, registration_deadline DATE, fees NUMERIC(10,2)) AS $$ 
+RETURNS TABLE (cust_id INTEGER, name TEXT, course_area TEXT, course_id INTEGER, title TEXT, launch_date DATE, registration_deadline DATE, fees NUMERIC(10,2)) AS $$
     WITH Reg AS (
-        SELECT card_number, course_id, date FROM Registers 
-        UNION 
+        SELECT card_number, course_id, date FROM Registers
+        UNION
         SELECT card_number, course_id, date FROM Redeems
     ),
     Cust_Reg AS (
         SELECT DISTINCT cust_id, name, course_id, date AS reg_date
-        FROM Customers NATURAL JOIN Owns NATURAL LEFT JOIN Reg 
+        FROM Customers NATURAL JOIN Owns NATURAL LEFT JOIN Reg
     ),
     Inactive_Cust_Reg AS (
         SELECT cust_id, name, course_id, reg_date
         FROM Cust_Reg CR
         WHERE NOT EXISTS (
-            SELECT 1 FROM Cust_Reg CR2 WHERE CR2.cust_id = CR.cust_id 
-            AND CR2.reg_date BETWEEN (CURRENT_DATE - INTERVAL '6 month')::DATE 
+            SELECT 1 FROM Cust_Reg CR2 WHERE CR2.cust_id = CR.cust_id
+            AND CR2.reg_date BETWEEN (CURRENT_DATE - INTERVAL '6 month')::DATE
                 AND CURRENT_DATE
         )
     ),
@@ -1313,12 +1327,12 @@ RETURNS TABLE (cust_id INTEGER, name TEXT, course_area TEXT, course_id INTEGER, 
         WHERE (SELECT COUNT(*) FROM Inactive_Cust_Reg ICR2 WHERE ICR2.cust_id = ICR.cust_id AND ICR2.reg_date > ICR.reg_date) < 3
     ),
     Inactive_Cust_Area AS (
-        (SELECT * FROM 
-            (SELECT cust_id, name FROM Inactive_Cust_Reg_Recent ICRR WHERE ICRR.course_id IS NULL) Cust_No_Reg, 
+        (SELECT * FROM
+            (SELECT cust_id, name FROM Inactive_Cust_Reg_Recent ICRR WHERE ICRR.course_id IS NULL) Cust_No_Reg,
             (SELECT name AS course_area FROM Course_areas) Areas
         )
         UNION
-        SELECT cust_id, name, course_area 
+        SELECT cust_id, name, course_area
         FROM Inactive_Cust_Reg_Recent NATURAL JOIN Courses
     )
     SELECT cust_id, name, course_area, course_id, title, launch_date, registration_deadline, fees
@@ -1328,7 +1342,7 @@ RETURNS TABLE (cust_id INTEGER, name TEXT, course_area TEXT, course_id INTEGER, 
 $$ LANGUAGE sql;
 
 -- 27
--- only check sale_start date? not buys date? 
+-- only check sale_start date? not buys date?
 CREATE OR REPLACE FUNCTION top_packages(n INT)
 RETURNS TABLE (package_id INT, num_free_registrations INT, price NUMERIC, sale_start_date DATE, sale_end_date DATE, num_sold INT) AS $$
 DECLARE
@@ -1339,7 +1353,7 @@ DECLARE
 		GROUP BY C.package_id
 		ORDER BY num_sold DESC, price DESC
     );
-    r RECORD; 
+    r RECORD;
     curr_idx INT := 1;
     prev_num_sold INT := -1;
 BEGIN
@@ -1393,12 +1407,12 @@ DECLARE
             GROUP BY C1.course_id, C1.launch_date
         )
         SELECT W.course_id, W.title, W.course_area, W.launch_date, COALESCE(X.registers_count, 0) + COALESCE(Y.redeems_count, 0) - COALESCE(Z.cancels_count, 0) AS num_registerations
-        FROM W LEFT OUTER JOIN X ON (W.course_id = X.course_id AND W.launch_date = X.launch_date) 
+        FROM W LEFT OUTER JOIN X ON (W.course_id = X.course_id AND W.launch_date = X.launch_date)
                 LEFT OUTER JOIN Y ON (W.course_id = Y.course_id AND W.launch_date = Y.launch_date)
                 LEFT OUTER JOIN Z ON (W.course_id = Z.course_id AND W.launch_date = Z.launch_date)
         ORDER BY W.course_id, W.launch_date
     );
-    curr_r RECORD; 
+    curr_r RECORD;
     prev_r RECORD;
     num INT := 1;
     is_popular INT := 1;
@@ -1413,8 +1427,8 @@ BEGIN
         IF prev_r.course_id = curr_r.course_id AND prev_r.num_registerations >= curr_r.num_registerations
         THEN
             is_popular := 0;
-        ELSIF prev_r.course_id <> curr_r.course_id AND is_popular = 1 
-        THEN 
+        ELSIF prev_r.course_id <> curr_r.course_id AND is_popular = 1
+        THEN
             course_id := prev_r.course_id;
             course_title := prev_r.title;
             course_area := prev_r.course_area;
@@ -1423,12 +1437,12 @@ BEGIN
             RETURN NEXT;
             num := 1;
         ELSIF prev_r.course_id <> curr_r.course_id AND is_popular = 0
-        THEN 
+        THEN
             is_popular := 1;
             num := 1;
         ELSE
             num := num + 1;
-        END IF;     
+        END IF;
         prev_r := curr_r;
     END LOOP;
 	IF is_popular = 1
@@ -1450,7 +1464,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION view_summary_report(n INT)
 RETURNS TABLE (month INT, year INT, total_salaries NUMERIC, total_sold_packages BIGINT, total_paid_fees NUMERIC, total_refunded_fees NUMERIC, total_redemptions BIGINT)
 AS $$
-DECLARE 
+DECLARE
   currentDate DATE;
   counterMonth TIMESTAMP;
   startMonth TIMESTAMP;
@@ -1676,4 +1690,3 @@ $$ LANGUAGE plpgsql;
 -- SELECT fee_one_offering(4, DATE '2020-09-01', 10.90)
 -- SELECT total_fee(6);  -- ?always return null
 -- SELECT * FROM view_manager_report()
-
