@@ -779,7 +779,6 @@ $$ LANGUAGE plpgsql;
 
 -- 19
 -- this function uses cust_id to find card_number of cards that owned by this customer
--- syntax correct
 CREATE OR REPLACE FUNCTION find_cards(cust INTEGER)
  RETURNS TABLE(cards TEXT) AS $$
   SELECT card_number
@@ -790,8 +789,6 @@ $$ LANGUAGE sql;
 
 -- this function returns a boolean
 -- TRUE if the customer directly register; FALSE if the customer redeem
-
---(cust_id, course_id, launch_date, sid, date)
 CREATE OR REPLACE FUNCTION in_registers(cust INTEGER, course INTEGER, launch DATE)
   RETURNS BOOLEAN AS $$
   SELECT EXISTS (
@@ -880,7 +877,6 @@ $$ LANGUAGE plpgsql;
 
 
 -- 19. update_course_session: a customer requests to change a registered course session to another session.
--- syntax correct
 CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER, launch DATE, new_sid INTEGER) AS $$
   DECLARE
     seat INTEGER;
@@ -900,7 +896,7 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
 
       IF NOT EXISTS(SELECT * FROM Customers WHERE cust_id = cust) THEN
         RAISE EXCEPTION 'this customer is not exist';
-      ELSIF new_date < CURRENT_DATE THEN
+      ELSIF new_date <= CURRENT_DATE THEN
         RAISE EXCEPTION 'session started';
 
       -- make sure the custommer register or redeem one session and that session is not canceled
@@ -924,7 +920,6 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
               FROM Registers
               WHERE course_id = course AND launch_date = launch
               AND card_number IN (SELECT * FROM find_cards(cust)));
-      --ELSIF in_redeems(cust, course, launch) THEN
       -- update in Redeems
       ELSE
         UPDATE Redeems SET sid = new_sid
@@ -1016,20 +1011,20 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
   END;
 $$ LANGUAGE plpgsql;
 
-
 -- 21
--- syntax correct
--- 21. update_instructor: This routine is used to change the instructor for a course session.
 CREATE OR REPLACE PROCEDURE update_instructor (course INTEGER, launch DATE, session_id INTEGER, new_eid INTEGER)
 AS $$
   DECLARE
     session_date DATE;
     start_time INTEGER;
   BEGIN
-  SELECT date, start_time INTO session_date, start_time FROM Sessions WHERE course_id = course AND sid = session_id;
+  IF NOT EXISTS (SELECT 1 FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session_id) THEN
+    RAISE EXCEPTION 'Session information not valid.';
+  END IF;
+  SELECT S.date, S.start_time INTO session_date, start_time FROM Sessions S WHERE course_id = course AND launch_date = launch AND sid = session_id;
   IF (new_eid NOT IN (SELECT eid FROM find_instructors (course, session_date, start_time))) THEN
-    RAISE EXCEPTION 'instructor not avaliable';
-  ELSIF session_date > CURRENT_DATE THEN
+    RAISE EXCEPTION 'new_eid is not valid';
+  ELSIF session_date <= CURRENT_DATE THEN
     RAISE EXCEPTION 'session started';
   ELSE
     UPDATE Sessions
@@ -1038,17 +1033,8 @@ AS $$
   END IF;
   END;
 $$ LANGUAGE plpgsql;
--- test 21:
--- 1 instructor is not available -- ?
--- CALL update_instructor (7, DATE '2021-03-30', 1, 15);
--- 2 instructor is available
---
-
-
 
 -- 22
--- syntax correct
--- 22. update_room: This routine is used to change the room for a course session.
 CREATE OR REPLACE PROCEDURE update_room (course INTEGER, launch DATE, session_id INTEGER, new_rid INTEGER)
 AS $$
   DECLARE
@@ -1067,24 +1053,24 @@ AS $$
     -- the seat capacity offering before the update
     SELECT seating_capacity, target_number_registrations INTO offering_capacity, target FROM Offerings WHERE course_id = course AND launch_date = launch;
 
-
     IF (new_rid NOT IN (SELECT rid FROM find_rooms(session_date, session_start, session_start - session_end))) THEN
       RAISE EXCEPTION 'the room is not available';
 
-    ELSIF session_date > CURRENT_DATE THEN
+    ELSIF session_date <= CURRENT_DATE THEN
       RAISE EXCEPTION 'session started';
 
     ELSE
-      students := student_in_session(course, launch, session);
+      students := student_in_session(course, launch, session_id);
       SELECT seating_capacity INTO seat FROM Rooms WHERE rid = new_rid; -- the seat capacity of the new room
       SELECT seating_capacity INTO seat_old FROM Rooms WHERE rid = old_room ; -- the seat capacity of the old room
 
       -- check if the number of student in the session exceeds the room capacity
-      IF (students <= seat) THEN
+      IF (students > seat) THEN
+        RAISE EXCEPTION 'new room cannot hold the number of registered custoemrs';
 
-      -- if the new room will make the seating capacity of the offering exceeds
+      -- if the new room will make the seating capacity < target number of registration
       ELSIF (offering_capacity - seat_old + seat) < target THEN
-        RAISE EXCEPTION 'seating capacity of offering less than target_number_registrations';
+        RAISE EXCEPTION 'seating capacity of offering less than target number of registrations';
 
       ELSE
         UPDATE Sessions
@@ -1099,24 +1085,11 @@ AS $$
   END;
 $$ LANGUAGE plpgsql;
 
--- test 22:
--- 1 room is available
--- CALL update_room (7, DATE '2021-03-30', 4, 4);
--- 2 room is not available
---
-
-
-
-
--- 23.
-
 -- 23. remove_session: This routine is used to remove a course session.
 CREATE OR REPLACE PROCEDURE remove_session (course INTEGER, launch DATE, session_id INTEGER)
 AS $$
-
   BEGIN
     DELETE FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session_id;
-
   END;
 $$ LANGUAGE plpgsql;
 -- test 23:
