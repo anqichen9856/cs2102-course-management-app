@@ -896,7 +896,7 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
 
       IF NOT EXISTS(SELECT * FROM Customers WHERE cust_id = cust) THEN
         RAISE EXCEPTION 'this customer is not exist';
-      ELSIF new_date < CURRENT_DATE THEN
+      ELSIF new_date <= CURRENT_DATE THEN
         RAISE EXCEPTION 'session started';
 
       -- make sure the custommer register or redeem one session and that session is not canceled
@@ -1024,7 +1024,7 @@ AS $$
   SELECT S.date, S.start_time INTO session_date, start_time FROM Sessions S WHERE course_id = course AND launch_date = launch AND sid = session_id;
   IF (new_eid NOT IN (SELECT eid FROM find_instructors (course, session_date, start_time))) THEN
     RAISE EXCEPTION 'new_eid is not valid';
-  ELSIF session_date < CURRENT_DATE THEN
+  ELSIF session_date <= CURRENT_DATE THEN
     RAISE EXCEPTION 'session started';
   ELSE
     UPDATE Sessions
@@ -1053,24 +1053,24 @@ AS $$
     -- the seat capacity offering before the update
     SELECT seating_capacity, target_number_registrations INTO offering_capacity, target FROM Offerings WHERE course_id = course AND launch_date = launch;
 
-
     IF (new_rid NOT IN (SELECT rid FROM find_rooms(session_date, session_start, session_start - session_end))) THEN
       RAISE EXCEPTION 'the room is not available';
 
-    ELSIF session_date > CURRENT_DATE THEN
+    ELSIF session_date <= CURRENT_DATE THEN
       RAISE EXCEPTION 'session started';
 
     ELSE
-      students := student_in_session(course, launch, session);
+      students := student_in_session(course, launch, session_id);
       SELECT seating_capacity INTO seat FROM Rooms WHERE rid = new_rid; -- the seat capacity of the new room
       SELECT seating_capacity INTO seat_old FROM Rooms WHERE rid = old_room ; -- the seat capacity of the old room
 
       -- check if the number of student in the session exceeds the room capacity
-      IF (students <= seat) THEN
+      IF (students > seat) THEN
+        RAISE EXCEPTION 'new room cannot hold the number of registered custoemrs';
 
-      -- if the new room will make the seating capacity of the offering exceeds
+      -- if the new room will make the seating capacity < target number of registration
       ELSIF (offering_capacity - seat_old + seat) < target THEN
-        RAISE EXCEPTION 'seating capacity of offering less than target_number_registrations';
+        RAISE EXCEPTION 'seating capacity of offering less than target number of registrations';
 
       ELSE
         UPDATE Sessions
@@ -1085,24 +1085,11 @@ AS $$
   END;
 $$ LANGUAGE plpgsql;
 
--- test 22:
--- 1 room is available
--- CALL update_room (7, DATE '2021-03-30', 4, 4);
--- 2 room is not available
---
-
-
-
-
--- 23.
-
 -- 23. remove_session: This routine is used to remove a course session.
 CREATE OR REPLACE PROCEDURE remove_session (course INTEGER, launch DATE, session_id INTEGER)
 AS $$
-
   BEGIN
     DELETE FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session_id;
-
   END;
 $$ LANGUAGE plpgsql;
 -- test 23:

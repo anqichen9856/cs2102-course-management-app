@@ -111,6 +111,7 @@ INSERT INTO Rooms VALUES (18, '02-08', 100);
 INSERT INTO Rooms VALUES (19, '02-09', 80);
 INSERT INTO Rooms VALUES (20, '02-10', 80);
 INSERT INTO Rooms VALUES (21, '03-01', 1);
+INSERT INTO Rooms VALUES (22, '03-02', 1);
 
 --Course_areas
 INSERT INTO Course_areas VALUES ('Database Systems', 6);
