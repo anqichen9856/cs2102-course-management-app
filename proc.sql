@@ -1691,7 +1691,7 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
       -- find total registratino fee
       total_registration_fee := total_fee(r_m.eid);
 
-      title_array := '{}'
+      title_array := '{}';
       -- title of course offering with the highest registration fee.
       OPEN curs_tie FOR (SELECT * FROM highest_total_fees(current_year, r_m.eid));
       LOOP
@@ -1700,6 +1700,7 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
         title_array := title_array || r_tie.title;
       END LOOP;
       CLOSE curs_tie;
+      course_title := title_array;
       RETURN NEXT;
     END LOOP;
     CLOSE curs_m;
