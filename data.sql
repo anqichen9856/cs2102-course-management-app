@@ -14,11 +14,11 @@ INSERT INTO Employees VALUES (12, 'Olivia Law', 'wjk@163.com', '(+86) 123456700'
 INSERT INTO Employees VALUES (13, 'Jean Haw', 'wy@163.com', '(+86) 88888888', 'tf building level 18', '2020-04-05', '2021-03-07');
 INSERT INTO Employees VALUES (14, 'Alex Guo', 'mjq@qq.com', '(+86) 13955581324', 'tf building level 18', '2021-03-28', NULL);
 INSERT INTO Employees VALUES (15, 'James Smith', 'hcy@outlook.com', '(+86) 123789456', 'tianyuchuanmei', '2019-03-14', NULL);
-INSERT INTO Employees VALUES (16, 'Joel Hong', 'joelhong@gmail.com', '(+65) 90175679', 'hwa chong institution', '2017-09-30', '2018-04-01');
+INSERT INTO Employees VALUES (16, 'Joel Hong', 'joelhong@gmail.com', '(+65) 90175679', 'hwa chong institution', '2017-09-30', NULL);
 INSERT INTO Employees VALUES (17, 'Eve Brown', 'eve@gmail.com', '(+65) 90175689', 'raffles institution', '2020-12-01', NULL);
 INSERT INTO Employees VALUES (18, 'Adam Yuan', 'ay@gmail.com', '(+65) 10102237', 'rvrc', '2020-04-01', NULL);
 INSERT INTO Employees VALUES (19, 'Xavior Chu', 'xc@gmail.com', '(+65) 10102234', 'pgp', '2020-04-07', NULL);
-INSERT INTO Employees VALUES (20, 'Peter Pan', 'peter@gmail.com', '(+65) 10102233', 'tembusu', '2020-02-03', NULL);
+INSERT INTO Employees VALUES (20, 'Peter Pan', 'peter@gmail.com', '(+65) 10102233', 'tembusu', '2020-02-03', '2021-04-09');
 
 --Full_time_Emp
 INSERT INTO Full_time_Emp VALUES (1, 10000);
