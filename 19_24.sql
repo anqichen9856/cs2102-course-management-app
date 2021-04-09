@@ -17,13 +17,13 @@ CREATE OR REPLACE FUNCTION inRegister(cust INTEGER, course INTEGER, launch DATE)
   RETURNS BOOLEAN AS $$
   DECLARE
     in_register INTEGER;
-    in_cancel
+    in_cancel INTEGER;
   BEGIN
   SELECT EXISTS (
 	  SELECT * FROM Registers r
 	  WHERE r.course_id = course AND r.launch_date = launch
 	  AND (r.card_number IN (SELECT * FROM find_cards(cust)))
-  )
+  );
 
   END;
 $$ LANGUAGE plpgsql;
@@ -153,7 +153,7 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
         RAISE EXCEPTION 'the custommer not register or redeem or canceled';
 
       -- check there are seat in the new session: if the number of student in the new session after the costommer updated into new session exceeds the room capacity
-      ELSIF (students + 1 >= seat) THEN
+      ELSIF (students + 1 > seat) THEN
         RAISE EXCEPTION 'no seat in new session';
 
       -- if costommer register directly, the record of that costommer in register
@@ -338,7 +338,7 @@ AS $$
         RAISE EXCEPTION 'instructor not avaliable, unable to INSERT or UPDATE';
 
       ELSE
-        RETURN NEXT;
+        RETURN NEW;
       END IF;
     END IF;
   END;
@@ -346,8 +346,9 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS insert_session_trigger ON Sessions;
 
-CREATE TRIGGER insert_session_trigger
-BEFORE INSERT ON Sessions
+CREATE CONSTRAINT TRIGGER insert_session_trigger
+AFTER INSERT ON Sessions
+DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION insert_session_func();
 
 

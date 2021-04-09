@@ -182,6 +182,7 @@ DECLARE
     instructor_id INT;
 	m TEXT[];
 BEGIN
+    INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target_number_registrations, seating_capacity, fees, eid);
     FOREACH m SLICE 1 IN ARRAY session_info
     LOOP
         date := m[1]::DATE;
@@ -197,21 +198,20 @@ BEGIN
         -- insert into sessions table
         sid := sid + 1;
         SELECT MIN(eid) INTO instructor_id FROM find_instructors(cid, date, start_hour);
-        CALL add_session(cid, launch_date, sid, date, start_hour, instructor_id, rid);
+        INSERT INTO Sessions VALUES (cid, launch_date, sid, date, start_hour, instructor_id, rid);
         
-        IF date < start_date 
-        THEN start_date := date;
-        END IF;
+        -- IF date < start_date 
+        -- THEN start_date := date;
+        -- END IF;
         
-        IF date > end_date
-        THEN end_date := date;
-        END IF;
+        -- IF date > end_date
+        -- THEN end_date := date;
+        -- END IF;
 
-        -- if rid fails foreign key constraint, the adding will fail at add_session step. 
-        SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = curr_rid;
-        seating_capacity := seating_capacity + curr_capacity;
+        -- -- if rid fails foreign key constraint, the adding will fail at add_session step. 
+        -- SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = curr_rid;
+        -- seating_capacity := seating_capacity + curr_capacity;
     END LOOP;
-    INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target_number_registrations, seating_capacity, fees, eid);
 END;
 $$ LANGUAGE plpgsql;
 
