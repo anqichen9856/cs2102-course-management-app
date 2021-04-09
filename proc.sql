@@ -794,14 +794,12 @@ $$ LANGUAGE sql;
 --(cust_id, course_id, launch_date, sid, date)
 CREATE OR REPLACE FUNCTION in_registers(cust INTEGER, course INTEGER, launch DATE)
   RETURNS BOOLEAN AS $$
-  BEGIN
   SELECT EXISTS (
 	  SELECT * FROM Registers r
 	  WHERE r.course_id = course AND r.launch_date = launch
 	  AND (r.card_number IN (SELECT * FROM find_cards(cust)))
   );
-  END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE sql;
 
 /*
 -- this function returns a boolean
@@ -815,8 +813,6 @@ CREATE OR REPLACE FUNCTION in_redeems(cust INTEGER, course INTEGER, launch DATE)
   );
 $$ LANGUAGE sql;
 */
-
-
 
 -- output: the number of student currently in the session.
 CREATE OR REPLACE FUNCTION student_in_session(course INTEGER, launch DATE, session INTEGER)
@@ -909,7 +905,7 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
 
       -- make sure the custommer register or redeem one session and that session is not canceled
       ELSIF check_cancel(course, launch, cust) = 0 THEN
-        RAISE EXCEPTION 'the custommer not register or redeem or canceled';
+        RAISE EXCEPTION 'the custommer does not have a registerd session for this course';
 
       -- check there are seat in the new session: if the number of student in the new session after the customer updated into new session exceeds the room capacity
       ELSIF (students + 1 > seat) THEN
@@ -924,11 +920,10 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
           WHERE card_number IN (SELECT * FROM find_cards(cust))
             AND course_id = course
             AND launch_date = launch
-            AND date = (SELECT date
+            AND date = (SELECT max(date)
               FROM Registers
               WHERE course_id = course AND launch_date = launch
-              GROUP BY course_id, launch_date
-              HAVING max(date));
+              AND card_number IN (SELECT * FROM find_cards(cust)));
       --ELSIF in_redeems(cust, course, launch) THEN
       -- update in Redeems
       ELSE
@@ -936,34 +931,14 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
           WHERE card_number IN (SELECT * FROM find_cards(cust))
             AND course_id = course
             AND launch_date = launch
-            AND date = (SELECT date
+            AND date = (SELECT max(date)
               FROM Redeems
               WHERE course_id = course AND launch_date = launch
-              GROUP BY course_id, launch_date
-              HAVING max(date));
-
-      --ELSE
-        --RAISE EXCEPTION 'customer did not register directly or redeem a session';
+              AND card_number IN (SELECT * FROM find_cards(cust)));
       END IF;
     END IF;
   END;
 $$ LANGUAGE plpgsql;
--- test 19:
--- 1 new session started
--- CALL update_course_session (2, 2, DATE '2020-10-05', 2);
--- 2 customer redeem
--- CALL update_course_session (2, 5, DATE '2021-03-10', 2);
--- 3 customer register directly
---
--- 4 session is not avaliable
--- CALL update_course_session (8, 5, DATE '2021-03-30', 2);
-
-
-
-
--- 20
-
-
 
 
 -- 20. cancel_registration: when a customer requests to cancel a registered course session.
@@ -1053,9 +1028,6 @@ $$ LANGUAGE plpgsql;
 --
 -- null value in column "sid" violates not-null constraint
 -- CALL cancel_registration (2, 5, DATE '2021-03-30');
-
-
-
 
 
 
