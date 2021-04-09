@@ -581,7 +581,7 @@ $$ LANGUAGE SQL;
 
 -- syntax correct
 CREATE OR REPLACE FUNCTION view_manager_report()
-RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGER, total_registratino_fee NUMERIC, course_title TEXT) AS $$
+RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGER, total_registration_fee NUMERIC, course_title TEXT) AS $$
   DECLARE
     current_year INTEGER;
     max_offering_fee NUMERIC;
@@ -613,7 +613,7 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
           AND EXTRACT(YEAR FROM end_date) = current_year; -- ended this year
 
       -- find total registratino fee
-      total_registratino_fee := total_fee(r_m.eid);
+      total_registration_fee := total_fee(r_m.eid);
 
       -- title of course offering with the highest registration fee.
       OPEN curs_tie FOR (SELECT * FROM highest_total_fees(current_year, r_m.eid));
