@@ -1939,7 +1939,7 @@ packageId INT;
 cardNumber TEXT;
 remainingRedem INT;
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Owns O WHERE O.card_number = NEW.card_number) THEN
+    IF NOT EXISTS (SELECT 1 FROM Owns O WHERE O.card_number = NEW.card_number AND O.from_date <= NEW.date) THEN
         RAISE EXCEPTION 'Card number % is invalid', NEW.card_number;
     END IF;
 
@@ -2081,7 +2081,7 @@ count_registration INT;
 capacity INT;
 BEGIN
     IF NOT EXISTS (
-       SELECT 1 FROM Credit_cards C WHERE C.number = NEW.card_number
+       SELECT 1 FROM Owns O WHERE O.card_number = NEW.card_number AND O.from_date <= NEW.date
     ) THEN RAISE EXCEPTION 'The card number % is invalid', NEW.card_number;
     END IF;
     IF NOT EXISTS (
