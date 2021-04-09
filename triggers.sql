@@ -1,3 +1,26 @@
+DROP TRIGGER IF EXISTS emp_covering_con_trigger ON Employees;
+DROP TRIGGER IF EXISTS full_time_emp_covering_con_trigger ON Full_time_Emp;
+DROP TRIGGER IF EXISTS part_time_emp_covering_con_trigger ON Part_time_Emp;
+DROP TRIGGER IF EXISTS instructor_covering_con_trigger ON Instructors;
+
+DROP TRIGGER IF EXISTS customer_owns_total_part_con_trigger ON Customers;
+DROP TRIGGER IF EXISTS credit_card_owns_total_part_con_trigger ON Credit_cards;
+DROP TRIGGER IF EXISTS credit_card_own_before_expiry_date_trigger ON Owns;
+
+DROP TRIGGER IF EXISTS instructor_specializes_total_part_con_trigger ON Instructors;
+DROP TRIGGER IF EXISTS offering_consists_total_part_con_trigger ON Offerings;
+DROP TRIGGER IF EXISTS course_area_manager_trigger ON Course_areas;
+
+DROP TRIGGER IF EXISTS buy_package_trigger ON Buys;
+DROP TRIGGER IF EXISTS redeem_if_valid_trigger ON Redeems;
+DROP TRIGGER IF EXISTS update_buy_redeem_trigger ON Redeems;
+DROP TRIGGER IF EXISTS register_if_valid_trigger ON Registers;
+DROP TRIGGER IF EXISTS update_buy_cancel_trigger ON Cancels;
+DROP TRIGGER IF EXISTS insert_session_trigger ON Sessions;
+DROP TRIGGER IF EXISTS delete_sessions_trigger ON Sessions;
+
+
+
 /* Employee Triggers */
 
 -- Employee can be either part time or full time, but not both
@@ -429,21 +452,15 @@ CREATE OR REPLACE FUNCTION update_buy_cancel_func() RETURNS TRIGGER AS $$
   END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS update_buy_cancel_trigger ON Cancels;
-
 CREATE TRIGGER update_buy_cancel_trigger
 AFTER INSERT ON Cancels
 FOR EACH ROW EXECUTE FUNCTION update_buy_cancel_func();
 
 
 
-
-
-
-
 -- this function returns a boolean
 -- TRUE if there is overlap in the session; FALSE if there is no overlap
-CREATE OR REPLACE FUNCTION ifOverlap(session_rid INTEGER, session_date DATE, new_start_time NUMERIC(4,2), new_end_time NUMERIC(4,2))
+CREATE OR REPLACE FUNCTION if_overlap(session_rid INTEGER, session_date DATE, new_start_time NUMERIC(4,2), new_end_time NUMERIC(4,2))
   RETURNS BOOLEAN AS $$
   SELECT EXISTS (
                 SELECT * FROM Sessions S
@@ -452,7 +469,7 @@ CREATE OR REPLACE FUNCTION ifOverlap(session_rid INTEGER, session_date DATE, new
                 AND (
                     (S.start_time >= new_start_time AND S.start_time < new_end_time) OR
                     (S.end_time > new_start_time AND S.end_time <= new_end_time) OR
-                    (new_start_time >= S.start_time AND S.start_time < new_end_time) OR
+                    (new_start_time >= S.start_time AND new_start_time < S.end_time) OR
                     (new_end_time > S.start_time AND new_end_time <= S.end_time)
                 )
             );
@@ -468,24 +485,22 @@ AS $$
   BEGIN
     SELECT duration INTO session_duration FROM Courses WHERE course_id = NEW.course_id;
     -- check that the no session can overlap
-    IF ifOverlap(NEW.rid, NEW.date, NEW.start_time, NEW.end_time) THEN
-      RAISE EXCEPTION 'the new session is overlap with other session';
+    IF if_overlap(NEW.rid, NEW.date, NEW.start_time, NEW.end_time) THEN
+      RAISE EXCEPTION 'The new session from % to % on % at room % overlaps with other session', NEW.start_time, NEW.end_time, NEW.date, NEW.rid;
 
     -- check if the room is valiable for the session
     -- IF NOT EXISTS(SELECT * FROM find_rooms(NEW.date, NEW.start_time, session_duration) WHERE rid = NEW.rid) THEN
 	  ELSIF (NEW.rid NOT IN (SELECT rid FROM find_rooms(NEW.date, NEW.start_time, session_duration))) THEN
-      RAISE EXCEPTION 'the room is not available, unable to INSERT or UPDATE';
+      RAISE EXCEPTION 'The room % is not available, unable to INSERT or UPDATE', NEW.rid;
 
     -- check if the instructor can teach this session
     ELSIF (NEW.eid NOT IN (SELECT eid FROM find_instructors (NEW.course_id, NEW.date, NEW.start_time))) THEN
-      RAISE EXCEPTION 'instructor not avaliable, unable to INSERT or UPDATE';
+      RAISE EXCEPTION 'Instructor % not avaliable, unable to INSERT or UPDATE', NEW.eid;
     ELSE
       RETURN NEW;
     END IF;
   END;
 $$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS insert_session_trigger ON Sessions;
 
 CREATE CONSTRAINT TRIGGER insert_session_trigger
 AFTER INSERT ON Sessions
@@ -508,9 +523,9 @@ AS $$
     -- check if there are someone in the session
     -- registers_course_id_launch_date_sid_fkey & redeems_course_id_launch_date_sid_fkey already checked ???
     IF (students > 0) THEN
-      RAISE EXCEPTION 'there are student in the session, cannot delete session';
+      RAISE EXCEPTION 'There are students in the session, cannot delete session';
     ELSIf OLD.date < CURRENT_DATE THEN
-      RAISE EXCEPTION 'the course session has started';
+      RAISE EXCEPTION 'The course session has started';
     ELSE
       SELECT COALESCE(MIN(date)) INTO offering_start FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
       SELECT COALESCE(MAX(date)) INTO offering_end FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
@@ -528,8 +543,6 @@ AS $$
     END IF;
   END;
 $$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS delete_sessions_trigger ON Sessions;
 
 CREATE TRIGGER delete_sessions_trigger
 BEFORE DELETE ON Sessions
