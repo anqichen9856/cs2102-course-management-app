@@ -42,22 +42,7 @@ $$ LANGUAGE sql;
 */
 
 
--- this function returns a boolean
--- TRUE if there is overlap in the session; FALSE if there is no overlap
-CREATE OR REPLACE FUNCTION ifOverlap(session_rid INTEGER, session_date DATE, new_start_time NUMERIC(4,2), new_end_time NUMERIC(4,2))
-  RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
-                SELECT * FROM Sessions S
-                WHERE S.date = session_date
-                AND S.rid = session_rid
-                AND (
-                    (S.start_time BETWEEN new_start_time AND new_end_time)
-                    OR (S.end_time BETWEEN new_start_time AND new_end_time)
-                    OR (new_start_time BETWEEN S.start_time AND S.end_time)
-                    OR (new_end_time BETWEEN S.start_time AND S.end_time)
-                )
-            );
-$$ LANGUAGE sql;
+
 
 -- output: the number of student currently in the session.
 CREATE OR REPLACE FUNCTION student_in_session(course INTEGER, launch DATE, session INTEGER)
@@ -203,38 +188,7 @@ $$ LANGUAGE plpgsql;
 
 
 -- 20
--- after a cancelltion, if session is redeemed update the num_remaining_redemptions in Buy if is refundable
-CREATE OR REPLACE FUNCTION update_buy_cancel_func() RETURNS TRIGGER AS $$
-  DECLARE
-    pid INTEGER; -- new
-    num_remaining_before INTEGER;
-    buy DATE;
-  BEGIN
-    -- if the customer use package to redeem and is refundable, package_credit = 1
-    IF NEW.package_credit = 1 THEN
-      -- find the package_id and the buy_date for the canceled session
-      SELECT package_id, buy_date
-        INTO pid, buy FROM Redeems
-        WHERE course_id = NEW.course_id AND launch_date = NEW.launch_date AND card_number IN (SELECT cards FROM find_cards(NEW.cust_id));
 
-      SELECT num_remaining_redemptions
-        INTO num_remaining_before FROM Buys
-        WHERE package_id = pid AND card_number IN (SELECT cards FROM find_cards(NEW.cust_id)) AND date = buy;
-
-      -- update the package that customer used to redeem the canceled session
-      UPDATE Buys
-        SET num_remaining_redemptions = num_remaining_before + 1
-        WHERE package_id = pid AND card_number IN (SELECT cards FROM find_cards(NEW.cust_id)) AND date = buy;
-    END IF;
-    RETURN NULL;
-  END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS update_buy_cancel_trigger ON Cancels;
-
-CREATE TRIGGER update_buy_cancel_trigger
-AFTER INSERT ON Cancels
-FOR EACH ROW EXECUTE FUNCTION update_buy_func();
 
 
 
@@ -329,38 +283,7 @@ $$ LANGUAGE plpgsql;
 
 
 
--- sessions triggers
-CREATE OR REPLACE FUNCTION insert_session_func() RETURNS TRIGGER
-AS $$
-  DECLARE
-    session_duration NUMERIC(4,2);
 
-  BEGIN
-    SELECT duration INTO session_duration FROM Courses WHERE course_id = NEW.course_id;
-    -- check that the no session can overlap
-    IF ifOverlap(NEW.rid, NEW.date, NEW.start_time, NEW.end_time) THEN
-      RAISE EXCEPTION 'the new session is overlap with other session';
-
-    -- check if the room is valiable for the session
-    -- IF NOT EXISTS(SELECT * FROM find_rooms(NEW.date, NEW.start_time, session_duration) WHERE rid = NEW.rid) THEN
-	  ELSIF (NEW.rid NOT IN (SELECT rid FROM find_rooms(NEW.date, NEW.start_time, session_duration))) THEN
-      RAISE EXCEPTION 'the room is not available, unable to INSERT or UPDATE';
-
-    -- check if the instructor can teach this session
-    ELSIF (NEW.eid NOT IN (SELECT eid FROM find_instructors (NEW.course_id, NEW.date, NEW.start_time))) THEN
-      RAISE EXCEPTION 'instructor not avaliable, unable to INSERT or UPDATE';
-    ELSE
-      RETURN NEW;
-    END IF;
-  END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS insert_session_trigger ON Sessions;
-
-CREATE CONSTRAINT TRIGGER insert_session_trigger
-AFTER INSERT ON Sessions
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW EXECUTE FUNCTION insert_session_func();
 
 
 
@@ -453,47 +376,6 @@ $$ LANGUAGE plpgsql;
 --
 
 
-
-
-CREATE OR REPLACE FUNCTION delete_sessions_func() RETURNS TRIGGER
-AS $$
-  DECLARE
-    students INTEGER;
-    offering_start DATE;
-    offering_end DATE;
-    room_id INTEGER;
-    room_deleted_session INTEGER;
-  BEGIN
-    students := student_in_session(OLD.course_id, OLD.launch_date, OLD.sid); --
-    -- check if there are someone in the session
-    -- registers_course_id_launch_date_sid_fkey & redeems_course_id_launch_date_sid_fkey already checked ???
-    IF (students > 0) THEN
-      RAISE EXCEPTION 'there are student in the session, cannot delete session';
-    ELSIf OLD.date < CURRENT_DATE THEN
-      RAISE EXCEPTION 'the course session has started';
-    ELSE
-      SELECT COALESCE(MIN(date)) INTO offering_start FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
-      SELECT COALESCE(MAX(date)) INTO offering_end FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
-      SELECT rid INTO room_id FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date AND sid = OLD.sid;
-      SELECT seating_capacity INTO room_deleted_session FROM Rooms WHERE rid = room_id;
-      UPDATE Offerings
-        SET start_date = offering_start, end_date = offering_end
-        WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
-
-      -- update seat capacity
-      UPDATE Offerings
-        SET seating_capacity =  seating_capacity - room_deleted_session
-        WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
-      RETURN NULL;
-    END IF;
-  END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS delete_sessions_trigger ON Sessions;
-
-CREATE TRIGGER delete_sessions_trigger
-BEFORE DELETE ON Sessions
-FOR EACH ROW EXECUTE FUNCTION delete_sessions_func();
 
 
 -- 23.
