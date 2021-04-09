@@ -978,13 +978,13 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
           if_register := 0;
         END IF;
       END IF;
-    
+
       -- if regester directly
       IF if_register = 1 THEN
         SELECT sid INTO session FROM Registers WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust)) AND date = latest_register;
         SELECT fees INTO fee FROM Offerings WHERE course_id = course AND launch_date = launch;
         SELECT date INTO registered_session_start FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session;
-        -- check if the session is alr passed. 
+        -- check if the session is alr passed.
         IF registered_session_start <= CURRENT_DATE THEN
           RAISE EXCEPTION 'Session started';
         END IF;
@@ -1000,7 +1000,7 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
       ELSE
         SELECT sid INTO session FROM Redeems WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust)) AND date = latest_redeem;
         SELECT date INTO registered_session_start FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session;
-        -- check if the session is alr passed. 
+        -- check if the session is alr passed.
         IF registered_session_start <= CURRENT_DATE THEN
           RAISE EXCEPTION 'Session started';
         END IF;
@@ -2070,13 +2070,13 @@ CREATE OR REPLACE FUNCTION update_buy_cancel_func() RETURNS TRIGGER AS $$
     IF NEW.package_credit = 1 THEN
 
       IF EXISTS (
-        SELECT 1 FROM Sessions S 
-        WHERE NEW.date <= S.date - 7 
+        SELECT 1 FROM Sessions S
+        WHERE NEW.date <= S.date - 7
         AND S.course_id = NEW.course_id AND S.launch_date = NEW.launch_date AND S.sid = NEW.sid
       ) THEN
-        SELECT B.package_id, B.card_number, B.date INTO pid, cardNumber, buyDate FROM Buys B 
-        WHERE EXISTS (SELECT 1 FROM Owns O WHERE NEW.cust_id = O.cust_id AND B.card_number = O.card_number) 
-        ORDER BY B.date DESC LIMIT 1; 
+        SELECT B.package_id, B.card_number, B.date INTO pid, cardNumber, buyDate FROM Buys B
+        WHERE EXISTS (SELECT 1 FROM Owns O WHERE NEW.cust_id = O.cust_id AND B.card_number = O.card_number)
+        ORDER BY B.date DESC LIMIT 1;
 
         UPDATE Buys SET num_remaining_redemptions = num_remaining_redemptions + 1
         WHERE package_id = pid AND card_number = cardNumber AND date = buyDate;
