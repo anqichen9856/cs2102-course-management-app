@@ -111,8 +111,7 @@ CREATE TABLE Offerings (
   	PRIMARY KEY (course_id, launch_date),
 	CHECK (launch_date <= registration_deadline),
 	CHECK (start_date <= end_date),
-	CHECK (registration_deadline <= start_date - INTERVAL '10 days'),
-	CHECK (seating_capacity >= target_number_registrations)
+	CHECK (registration_deadline <= start_date - INTERVAL '10 days')
 );
 
 
