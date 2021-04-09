@@ -1,7 +1,12 @@
 DROP PROCEDURE IF EXISTS add_employee, remove_employee, add_customer, update_credit_card, add_course;
 DROP FUNCTION IF EXISTS find_instructors, pay_salary, promote_courses;
-DROP PROCEDURE IF EXISTS add_course_offering, add_course_package; 
-DROP FUNCTION IF EXISTS get_available_instructors, find_rooms, get_available_rooms, get_available_course_packages, top_packages, popular_courses;
+DROP PROCEDURE IF EXISTS add_course_offering(INT, NUMERIC, DATE, DATE, INT, INT, TEXT[][]);
+DROP PROCEDURE IF EXISTS add_course_package(TEXT, INT, DATE, DATE, NUMERIC); 
+DROP FUNCTION IF EXISTS get_available_instructors(INT,DATE,DATE); 
+DROP FUNCTION IF EXISTS find_rooms(DATE,NUMERIC,NUMERIC);
+DROP FUNCTION IF EXISTS get_available_rooms(DATE,DATE);
+DROP FUNCTION IF EXISTS get_available_course_packages();
+DROP FUNCTION IF EXISTS top_packages, popular_courses;
 DROP PROCEDURE IF EXISTS buy_course_package, register_session;
 DROP FUNCTION IF EXISTS get_my_course_package, get_available_course_offerings, get_available_course_sessions, get_my_registrations, view_summary_report;
 DROP PROCEDURE IF EXISTS update_course_session, cancel_registration, update_instructor, update_room, remove_session, add_session;
