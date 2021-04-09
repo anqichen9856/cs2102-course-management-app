@@ -10,8 +10,8 @@ DROP FUNCTION IF EXISTS pay_salary ();
 DROP FUNCTION IF EXISTS promote_courses ();
 
 DROP PROCEDURE IF EXISTS add_course_offering (INT, NUMERIC, DATE, DATE, INT, INT, TEXT[][]);
-DROP PROCEDURE IF EXISTS add_course_package (TEXT, INT, DATE, DATE, NUMERIC); 
-DROP FUNCTION IF EXISTS get_available_instructors (INT, DATE, DATE); 
+DROP PROCEDURE IF EXISTS add_course_package (TEXT, INT, DATE, DATE, NUMERIC);
+DROP FUNCTION IF EXISTS get_available_instructors (INT, DATE, DATE);
 DROP FUNCTION IF EXISTS find_rooms (DATE, NUMERIC, NUMERIC);
 DROP FUNCTION IF EXISTS get_available_rooms (DATE, DATE);
 DROP FUNCTION IF EXISTS get_available_course_packages();
@@ -19,7 +19,7 @@ DROP FUNCTION IF EXISTS top_packages (INT);
 DROP FUNCTION IF EXISTS popular_courses ();
 
 DROP PROCEDURE IF EXISTS buy_course_package (INT, INT);
-DROP PROCEDURE IF EXISTS register_session (INT, INT, DATE, INT, INT); 
+DROP PROCEDURE IF EXISTS register_session (INT, INT, DATE, INT, INT);
 DROP FUNCTION IF EXISTS get_my_course_package (INT);
 DROP FUNCTION IF EXISTS get_available_course_offerings ();
 DROP FUNCTION IF EXISTS get_available_course_sessions (INT, DATE);
@@ -32,7 +32,7 @@ DROP PROCEDURE IF EXISTS update_instructor(INTEGER, DATE, INTEGER, INTEGER);
 DROP PROCEDURE IF EXISTS update_room(INTEGER, DATE, INTEGER, INTEGER);
 DROP PROCEDURE IF EXISTS remove_session(INTEGER, DATE, INTEGER);
 DROP PROCEDURE IF EXISTS add_session(INTEGER, DATE, INTEGER, DATE, NUMERIC(4,2), INTEGER, INTEGER);
-DROP FUNCTION IF EXISTS find_cards(INTEGER); 
+DROP FUNCTION IF EXISTS find_cards(INTEGER);
 DROP FUNCTION IF EXISTS in_registers(INTEGER, INTEGER, DATE);
 DROP FUNCTION IF EXISTS student_in_session(INTEGER, DATE, INTEGER);
 DROP FUNCTION IF EXISTS check_cancel(INTEGER, DATE, INTEGER);
@@ -603,7 +603,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION get_available_course_offerings()
 RETURNS TABLE(course_title TEXT, course_area TEXT, start_date DATE, end_date DATE, registration_deadline DATE, course_fees NUMERIC, num_remaining_seats INT)
 AS $$
-SELECT title, course_area, start_date, end_date, registration_deadline, fees, (seating_capacity - count_registers - count_redeems + count_cancels) AS num_remaining_seats
+SELECT title, course_area, start_date, end_date, registration_deadline, fees, (seating_capacity - count_registers - count_redeems + count_cancels)::INT AS num_remaining_seats
 FROM (
   SELECT title, course_area, start_date, end_date, registration_deadline, fees, seating_capacity
   , COALESCE (count1, 0) AS count_registers
@@ -963,11 +963,11 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
       RAISE EXCEPTION 'the customer not register or redeem any session or canceled, no session can be cancel for this customer';
     -- the customer registered/redeem in a session
     ELSE
-      SELECT COALESCE(MAX(date))
+      SELECT COALESCE(MAX(date), 0)
         INTO latest_redeem
         FROM Redeems
         WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
-      SELECT COALESCE(MAX(date))
+      SELECT COALESCE(MAX(date), 0)
         INTO latest_register
         FROM Registers
         WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
@@ -1196,7 +1196,7 @@ AS $$
         VALUES (course, launch, new_sid, new_start_date, start, (start+session_duration), instructor, room);
       -- update offering since start date or send date may change after new swssion being inserted
       UPDATE Offerings
-        SET start_date = COALESCE(LEAST(start_date, new_start_date)), end_date = COALESCE(GREATEST(end_date, new_start_date))
+        SET start_date = COALESCE(LEAST(start_date, new_start_date), 0), end_date = COALESCE(GREATEST(end_date, new_start_date), 0)
         WHERE course_id = course AND launch_date = launch;
       -- update the seating_capacity
       UPDATE Offerings
@@ -1533,7 +1533,7 @@ RETURN QUERY WITH salaries AS (
   GROUP BY year, month
 )
 SELECT V.month, V.year, COALESCE(salary_sum, 0), COALESCE(packages_count, 0), COALESCE(fees_sum, 0), COALESCE(refund_sum, 0), COALESCE(redeems_count, 0) - COALESCE(cancels_count, 0)
-FROM ViewedMonths V NATURAL LEFT OUTER JOIN salaries NATURAL LEFT OUTER JOIN sold_packages NATURAL LEFT OUTER JOIN paid_fees NATURAL LEFT OUTER JOIN refunded_fees 
+FROM ViewedMonths V NATURAL LEFT OUTER JOIN salaries NATURAL LEFT OUTER JOIN sold_packages NATURAL LEFT OUTER JOIN paid_fees NATURAL LEFT OUTER JOIN refunded_fees
 NATURAL LEFT OUTER JOIN redemptions NATURAL LEFT OUTER JOIN cancels
 ORDER BY V.year DESC;
 DROP TABLE ViewedMonths;
@@ -1598,11 +1598,11 @@ BEGIN
   );
   -- total fees for one offering
   fees_offering := fees_register + fees_redeem;
-  RETURN fees_offering;
+  RETURN COALESCE(fees_offering, 0);
 END;
 $$ LANGUAGE plpgsql;
 
--- syntax correct
+-- ???????
 CREATE OR REPLACE FUNCTION total_fee(M_eid INTEGER)
   RETURNS NUMERIC AS $$
   DECLARE
@@ -1625,7 +1625,8 @@ CREATE OR REPLACE FUNCTION total_fee(M_eid INTEGER)
       total_fee := total_fee + fees_offering;
     END LOOP;
     CLOSE curs_o;
-    RETURN total_fee;
+
+    RETURN COALESCE(total_fee, 0);
   END;
 $$ LANGUAGE plpgsql;
 
@@ -1636,7 +1637,7 @@ RETURNS TABLE(title TEXT) AS $$
   -- highest total net registration fees among all the course offerings
   (SELECT B.title
   FROM (
-    (SELECT course_id, COALESCE(MAX(f))
+    (SELECT course_id, COALESCE(MAX(f), 0)
     FROM (
       SELECT course_id, fee_one_offering(course_id, launch_date, fees) AS f
       FROM Offerings
@@ -1665,6 +1666,7 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
     r_m RECORD;
     curs_tie refcursor;
     r_tie RECORD;
+    title_array TEXT[];
   BEGIN
     current_year := EXTRACT(YEAR FROM CURRENT_DATE);
     OPEN curs_m;
@@ -1690,15 +1692,17 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
       -- find total registratino fee
       total_registration_fee := total_fee(r_m.eid);
 
+      title_array := '{}';
       -- title of course offering with the highest registration fee.
       OPEN curs_tie FOR (SELECT * FROM highest_total_fees(current_year, r_m.eid));
       LOOP
         FETCH curs_tie INTO r_tie;
         EXIT WHEN NOT FOUND;
-        course_title := r_tie.title;
-        RETURN NEXT;
+        title_array := title_array || r_tie.title;
       END LOOP;
       CLOSE curs_tie;
+      course_title := title_array;
+      RETURN NEXT;
     END LOOP;
     CLOSE curs_m;
   END;
@@ -1735,7 +1739,6 @@ DROP TRIGGER IF EXISTS register_if_valid_trigger ON Registers;
 DROP TRIGGER IF EXISTS update_buy_cancel_trigger ON Cancels;
 DROP TRIGGER IF EXISTS insert_session_trigger ON Sessions;
 DROP TRIGGER IF EXISTS delete_sessions_trigger ON Sessions;
-
 
 
 /* Employee Triggers */
@@ -1920,8 +1923,10 @@ AS $$
 BEGIN
     IF (SELECT depart_date FROM Employees E WHERE E.eid = NEW.eid) <= CURRENT_DATE THEN
         RAISE EXCEPTION 'The manager has already left the company.';
+        RETURN NULL;
+    ELSE 
+        RETURN NEW;
     END IF;
-    RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1939,7 +1944,7 @@ packageId INT;
 cardNumber TEXT;
 remainingRedem INT;
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Owns O WHERE O.card_number = NEW.card_number) THEN
+    IF NOT EXISTS (SELECT 1 FROM Owns O WHERE O.card_number = NEW.card_number AND O.from_date <= NEW.date) THEN
         RAISE EXCEPTION 'Card number % is invalid', NEW.card_number;
     END IF;
 
@@ -2081,7 +2086,7 @@ count_registration INT;
 capacity INT;
 BEGIN
     IF NOT EXISTS (
-       SELECT 1 FROM Credit_cards C WHERE C.number = NEW.card_number
+       SELECT 1 FROM Owns O WHERE O.card_number = NEW.card_number AND O.from_date <= NEW.date
     ) THEN RAISE EXCEPTION 'The card number % is invalid', NEW.card_number;
     END IF;
     IF NOT EXISTS (
@@ -2234,6 +2239,7 @@ AS $$
     offering_end DATE;
     room_id INTEGER;
     room_deleted_session INTEGER;
+
   BEGIN
     students := student_in_session(OLD.course_id, OLD.launch_date, OLD.sid); --
     -- check if there are someone in the session
@@ -2243,8 +2249,8 @@ AS $$
     ELSIf OLD.date < CURRENT_DATE THEN
       RAISE EXCEPTION 'The course session has started';
     ELSE
-      SELECT COALESCE(MIN(date)) INTO offering_start FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
-      SELECT COALESCE(MAX(date)) INTO offering_end FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+      SELECT COALESCE(MIN(date), 0) INTO offering_start FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+      SELECT COALESCE(MAX(date), 0) INTO offering_end FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
       SELECT rid INTO room_id FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date AND sid = OLD.sid;
       SELECT seating_capacity INTO room_deleted_session FROM Rooms WHERE rid = room_id;
       UPDATE Offerings
