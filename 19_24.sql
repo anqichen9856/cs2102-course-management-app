@@ -161,11 +161,28 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
       -- it is guaranteed that there is only one record for one customer in registers/redeems
       ELSIF inRegister(cust, course, launch) THEN
         -- update in Registers
-        UPDATE Registers SET sid = new_sid WHERE card_number IN (SELECT * FROM find_cards(cust)) AND course_id = course AND launch_date = launch;
+        UPDATE Registers SET sid = new_sid
+          WHERE card_number IN (SELECT * FROM find_cards(cust))
+            AND course_id = course
+            AND launch_date = launch
+            AND date = (SELECT date
+              FROM Registers
+              WHERE course_id = course AND launch_date = launch
+              GROUP BY course_id, launch_date
+              HAVING max(date));
       --ELSIF inRedeem(cust, course, launch) THEN
       -- update in Redeems
       ELSE
-        UPDATE Redeems SET sid = new_sid WHERE card_number IN (SELECT * FROM find_cards(cust)) AND course_id = course AND launch_date = launch;
+        UPDATE Redeems SET sid = new_sid
+          WHERE card_number IN (SELECT * FROM find_cards(cust))
+            AND course_id = course
+            AND launch_date = launch
+            AND date = (SELECT date
+              FROM Redeems
+              WHERE course_id = course AND launch_date = launch
+              GROUP BY course_id, launch_date
+              HAVING max(date));
+
       --ELSE
         --RAISE EXCEPTION 'costommer did not register directly or redeem a session';
       END IF;
@@ -284,7 +301,7 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
         SELECT sid INTO session FROM Redeems WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
         SELECT date INTO registered_session_start FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session;
         -- check can be refund
-        ELSIF registered_session_start-7 >= CURRENT_DATE THEN
+        IF registered_session_start-7 >= CURRENT_DATE THEN
           refund_amt := 0;
           package_credit := 1;
           INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, package_credit);
@@ -332,9 +349,8 @@ AS $$
     -- check if the instructor can teach this session
     ELSIF (NEW.eid NOT IN (SELECT eid FROM find_instructors (NEW.course_id, NEW.date, NEW.start_time))) THEN
       RAISE EXCEPTION 'instructor not avaliable, unable to INSERT or UPDATE';
-      ELSE
-        RETURN NEW;
-      END IF;
+    ELSE
+      RETURN NEW;
     END IF;
   END;
 $$ LANGUAGE plpgsql;
@@ -385,6 +401,7 @@ AS $$
   DECLARE
     seat INTEGER;
     old_room INTEGER;
+    seat_old INTEGER;
     students INTEGER;
     session_date DATE;
     session_start INTEGER;
@@ -465,7 +482,7 @@ AS $$
 
       -- update seat capacity
       UPDATE Offerings
-        SET seating_capacity =  seating_capacity - room_deleted_session;
+        SET seating_capacity =  seating_capacity - room_deleted_session
         WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
       RETURN NULL;
     END IF;
