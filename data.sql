@@ -1,5 +1,5 @@
 --Employees
-INSERT INTO Employees VALUES (1, 'Jonathan Joestar', 'abc@gmail.com', '(+65) 12345678', 'abc street', '2015-01-04', NULL);
+INSERT INTO Employees VALUES (1, 'Jonathan Joestar', 'abc@gmail.com', '(+65) 12345678', 'abc street', '2018-01-04', NULL);
 INSERT INTO Employees VALUES (2, 'Dio Brando', 'qqq@gmail.com', '(+65) 12345679', 'bcd street ', '2018-01-01', '2021-04-06');
 INSERT INTO Employees VALUES (3, 'Joseph Joestar', 'eee@gmail.com', '(+65) 12345680', 'def street', '2017-08-29', NULL);
 INSERT INTO Employees VALUES (4, 'Lisa Lisa', 'ooo@gmail.com', '(+65) 12345681', 'xxx street', '2016-01-03', NULL);
@@ -7,18 +7,18 @@ INSERT INTO Employees VALUES (5, 'Alice Tan', 'hhh@gmail.com', '(+65) 12345682',
 INSERT INTO Employees VALUES (6, 'Charles Chen', 'halo@gmail.com', '(+65) 12345683', 'zzz street', '2019-01-05', NULL);
 INSERT INTO Employees VALUES (7, 'David Sun', 'hallo@gmail.com', '(+65) 12345684', 'woe street', '2009-01-06', '2021-03-05');
 INSERT INTO Employees VALUES (8, 'Frank Goh', 'hello@gmail.com', '(+65) 12345685', 'wow street', '2018-01-07', NULL);
-INSERT INTO Employees VALUES (9, 'George Lim', 'bye@gmail.com', '(+65) 12345686', 'woohoo street', '2020-01-08', NULL);
+INSERT INTO Employees VALUES (9, 'George Lim', 'bye@gmail.com', '(+65) 12345686', 'woohoo street', '2018-01-08', NULL);
 INSERT INTO Employees VALUES (10, 'William Kin', 'byee@gmail.com', '(+65) 12345687', 'aha street', '2014-01-09', NULL);
-INSERT INTO Employees VALUES (11, 'Emily Wang', 'yyqx@163.com', '(+86) 123456789', 'tf building level 18', '2019-07-16', NULL);
-INSERT INTO Employees VALUES (12, 'Olivia Law', 'wjk@163.com', '(+86) 123456700', 'tf building level 18', '2020-09-11', NULL);
-INSERT INTO Employees VALUES (13, 'Jean Haw', 'wy@163.com', '(+86) 88888888', 'tf building level 18', '2020-04-05', NULL);
-INSERT INTO Employees VALUES (14, 'Alex Guo', 'mjq@qq.com', '(+86) 13955581324', 'tf building level 18', '2021-03-28', NULL);
+INSERT INTO Employees VALUES (11, 'Emily Wang', 'yyqx@163.com', '(+86) 123456789', 'tf building level 18', '2018-07-16', NULL);
+INSERT INTO Employees VALUES (12, 'Olivia Law', 'wjk@163.com', '(+86) 123456700', 'tf building level 18', '2018-09-11', NULL);
+INSERT INTO Employees VALUES (13, 'Jean Haw', 'wy@163.com', '(+86) 88888888', 'tf building level 18', '2018-04-05', NULL);
+INSERT INTO Employees VALUES (14, 'Alex Guo', 'mjq@qq.com', '(+86) 13955581324', 'tf building level 18', '2018-03-28', NULL);
 INSERT INTO Employees VALUES (15, 'James Smith', 'hcy@outlook.com', '(+86) 123789456', 'tianyuchuanmei', '2019-03-14', NULL);
 INSERT INTO Employees VALUES (16, 'Joel Hong', 'joelhong@gmail.com', '(+65) 90175679', 'hwa chong institution', '2017-09-30', NULL);
-INSERT INTO Employees VALUES (17, 'Eve Brown', 'eve@gmail.com', '(+65) 90175689', 'raffles institution', '2020-12-01', NULL);
-INSERT INTO Employees VALUES (18, 'Adam Yuan', 'ay@gmail.com', '(+65) 10102237', 'rvrc', '2020-04-01', NULL);
-INSERT INTO Employees VALUES (19, 'Xavior Chu', 'xc@gmail.com', '(+65) 10102234', 'pgp', '2020-04-07', NULL);
-INSERT INTO Employees VALUES (20, 'Peter Pan', 'peter@gmail.com', '(+65) 10102233', 'tembusu', '2020-02-03', '2021-04-09');
+INSERT INTO Employees VALUES (17, 'Eve Brown', 'eve@gmail.com', '(+65) 90175689', 'raffles institution', '2018-12-01', NULL);
+INSERT INTO Employees VALUES (18, 'Adam Yuan', 'ay@gmail.com', '(+65) 10102237', 'rvrc', '2018-04-01', NULL);
+INSERT INTO Employees VALUES (19, 'Xavior Chu', 'xc@gmail.com', '(+65) 10102234', 'pgp', '2018-04-07', NULL);
+INSERT INTO Employees VALUES (20, 'Peter Pan', 'peter@gmail.com', '(+65) 10102233', 'tembusu', '2018-02-03', '2021-04-09');
 
 --Full_time_Emp
 INSERT INTO Full_time_Emp VALUES (1, 10000);
@@ -166,9 +166,10 @@ INSERT INTO Offerings VALUES (7, '2021-03-30', '2021-05-17', '2021-05-31', '2021
 INSERT INTO Offerings VALUES (8, '2021-01-01', '2021-02-01', '2021-02-01', '2021-01-20', 10, 40, 79.9, 18);
 INSERT INTO Offerings VALUES (8, '2021-02-01', '2021-03-01', '2021-03-01', '2021-02-18', 20, 40, 79.9, 18);
 INSERT INTO Offerings VALUES (8, '2021-03-01', '2021-04-01', '2021-04-01', '2021-03-20', 30, 40, 79.9, 18);
-INSERT INTO Offerings VALUES (5, '2021-03-30', '2021-05-10', '2021-05-10', '2021-04-30', 100, 90, 49.9, 18);
+INSERT INTO Offerings VALUES (5, '2021-03-30', '2021-05-10', '2021-05-10', '2021-04-30', 50, 90, 49.9, 18);
 INSERT INTO Offerings VALUES (3, '2021-04-30', '2021-06-22', '2021-06-22', '2021-05-06', 15, 90, 125.8, 18);
 INSERT INTO Offerings VALUES (10, '2021-03-01', '2021-04-05', '2021-04-30', '2021-03-15', 10, 10, 79.9, 18);
+INSERT INTO Offerings VALUES (3, '2019-04-18', '2019-05-06', '2019-05-06', '2019-04-19', 15, 90, 125.8, 18);
 
 --Sessions
 INSERT INTO Sessions VALUES (1, '2020-09-01', 1, '2020-10-01', 9.0, 11.0, 1, 1);
@@ -209,6 +210,7 @@ INSERT INTO Sessions VALUES (10, '2021-03-01', 7, '2021-04-27', 14.0, 18.0, 15, 
 INSERT INTO Sessions VALUES (10, '2021-03-01', 8, '2021-04-28', 14.0, 18.0, 17, 21);
 INSERT INTO Sessions VALUES (10, '2021-03-01', 9, '2021-04-29', 14.0, 18.0, 17, 21);
 INSERT INTO Sessions VALUES (10, '2021-03-01', 10, '2021-04-30', 14.0, 18.0, 17, 21);
+INSERT INTO Sessions VALUES (3, '2019-04-18', 1, '2019-05-06', 14.0, 17.0, 3, 15);
 
 --Customers
 INSERT INTO Customers VALUES (1, 'Severus Snape', 'xm@gmail.com', '(+86) 11111111', 'Changyang Street');
@@ -265,31 +267,31 @@ INSERT INTO Credit_cards VALUES ('A123456789035', '2024-05-21', 444);
 INSERT INTO Credit_cards VALUES ('A123456789036', '2024-05-22', 444);
 
 --Owns
-INSERT INTO Owns VALUES (1, 'A123456789012', '2019-07-03');
-INSERT INTO Owns VALUES (2, 'A123456789013', '2019-07-04');
-INSERT INTO Owns VALUES (3, 'A123456789014', '2019-07-05');
-INSERT INTO Owns VALUES (4, 'A123456789015', '2019-07-06');
-INSERT INTO Owns VALUES (5, 'A123456789016', '2019-07-07');
-INSERT INTO Owns VALUES (6, 'A123456789017', '2019-07-08');
-INSERT INTO Owns VALUES (7, 'A123456789018', '2019-07-09');
-INSERT INTO Owns VALUES (8, 'A123456789019', '2019-07-10');
-INSERT INTO Owns VALUES (9, 'A123456789020', '2019-07-11');
-INSERT INTO Owns VALUES (10, 'A123456789021', '2019-07-12');
-INSERT INTO Owns VALUES (11, 'A123456789022', '2021-01-02');
-INSERT INTO Owns VALUES (12, 'A123456789023', '2020-01-04');
-INSERT INTO Owns VALUES (13, 'A123456789024', '2020-01-05');
-INSERT INTO Owns VALUES (14, 'A123456789025', '2020-01-06');
-INSERT INTO Owns VALUES (15, 'A123456789026', '2020-01-07');
-INSERT INTO Owns VALUES (16, 'A123456789027', '2020-01-08');
-INSERT INTO Owns VALUES (17, 'A123456789028', '2020-01-09');
-INSERT INTO Owns VALUES (18, 'A123456789029', '2020-01-10');
-INSERT INTO Owns VALUES (19, 'A123456789030', '2020-01-11');
-INSERT INTO Owns VALUES (20, 'A123456789031', '2020-01-12');
-INSERT INTO Owns VALUES (21, 'A123456789032', '2020-01-13');
-INSERT INTO Owns VALUES (22, 'A123456789033', '2020-01-14');
-INSERT INTO Owns VALUES (23, 'A123456789034', '2020-01-15');
-INSERT INTO Owns VALUES (24, 'A123456789035', '2020-01-16');
-INSERT INTO Owns VALUES (25, 'A123456789036', '2020-01-17');
+INSERT INTO Owns VALUES (1, 'A123456789012', '2015-07-03');
+INSERT INTO Owns VALUES (2, 'A123456789013', '2015-07-04');
+INSERT INTO Owns VALUES (3, 'A123456789014', '2015-07-05');
+INSERT INTO Owns VALUES (4, 'A123456789015', '2015-07-06');
+INSERT INTO Owns VALUES (5, 'A123456789016', '2015-07-07');
+INSERT INTO Owns VALUES (6, 'A123456789017', '2015-07-08');
+INSERT INTO Owns VALUES (7, 'A123456789018', '2015-07-09');
+INSERT INTO Owns VALUES (8, 'A123456789019', '2015-07-10');
+INSERT INTO Owns VALUES (9, 'A123456789020', '2015-07-11');
+INSERT INTO Owns VALUES (10, 'A123456789021', '2015-07-12');
+INSERT INTO Owns VALUES (11, 'A123456789022', '2015-01-02');
+INSERT INTO Owns VALUES (12, 'A123456789023', '2015-01-04');
+INSERT INTO Owns VALUES (13, 'A123456789024', '2015-01-05');
+INSERT INTO Owns VALUES (14, 'A123456789025', '2015-01-06');
+INSERT INTO Owns VALUES (15, 'A123456789026', '2015-01-07');
+INSERT INTO Owns VALUES (16, 'A123456789027', '2015-01-08');
+INSERT INTO Owns VALUES (17, 'A123456789028', '2015-01-09');
+INSERT INTO Owns VALUES (18, 'A123456789029', '2015-01-10');
+INSERT INTO Owns VALUES (19, 'A123456789030', '2015-01-11');
+INSERT INTO Owns VALUES (20, 'A123456789031', '2015-01-12');
+INSERT INTO Owns VALUES (21, 'A123456789032', '2015-01-13');
+INSERT INTO Owns VALUES (22, 'A123456789033', '2015-01-14');
+INSERT INTO Owns VALUES (23, 'A123456789034', '2015-01-15');
+INSERT INTO Owns VALUES (24, 'A123456789035', '2015-01-16');
+INSERT INTO Owns VALUES (25, 'A123456789036', '2015-01-17');
 
 --Course_packages
 INSERT INTO Course_packages VALUES (1, 6, '2016-06-06', '2016-12-26', 'Wu Di 666', 166);
@@ -337,6 +339,8 @@ INSERT INTO Registers VALUES ('A123456789019', 5, '2021-03-30', 1, '2021-04-11')
 INSERT INTO Registers VALUES ('A123456789020', 8, '2021-02-01', 2, '2021-02-02');
 INSERT INTO Registers VALUES ('A123456789017', 8, '2021-03-01', 3, '2021-03-03');
 INSERT INTO Registers VALUES ('A123456789014', 8, '2021-03-01', 3, '2021-03-03');
+INSERT INTO Registers VALUES ('A123456789031', 3, '2019-04-18', 1, '2019-04-18');
+INSERT INTO Registers VALUES ('A123456789032', 8, '2021-03-01', 3, '2021-03-03');
 
 --Cancels
 INSERT INTO Cancels VALUES (1, 1, '2020-09-01', 2, '2020-09-28', 35.91, 0);
