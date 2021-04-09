@@ -1170,7 +1170,6 @@ $$ LANGUAGE  plpgsql;
 
 
 -- 25
-
 /*
 - find employees whose depart_date >= first day of month
 
@@ -1183,7 +1182,6 @@ $$ LANGUAGE  plpgsql;
 - For a part-time employees, number of work days for the month and monthly salary should be null.
   The salary amount = hourly rate * number of work hours for the month
 */
-
 CREATE OR REPLACE FUNCTION pay_salary ()
 RETURNS TABLE (eid INTEGER, name TEXT, status TEXT, num_work_days INTEGER, num_work_hours NUMERIC, hourly_rate NUMERIC, monthly_salary NUMERIC, amount NUMERIC) AS $$
 DECLARE
