@@ -1092,19 +1092,6 @@ AS $$
     DELETE FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session_id;
   END;
 $$ LANGUAGE plpgsql;
--- test 23:
--- 1 offering time changed
---
--- 2 there are student in the session
---
--- 3 session started
--- CALL remove_session (4, DATE '2020-09-01', 2);
--- 4 update or delete on table "sessions" violates foreign key constraint "registers_course_id_launch_date_sid_fkey" on table "registers"
--- CALL remove_session (5, DATE '2021-03-30', 1);
--- 5 update or delete on table "sessions" violates foreign key constraint "redeems_course_id_launch_date_sid_fkey" on table "redeems"
--- CALL remove_session (5, DATE '2021-03-10', 2);
-
-
 
 -- 24. add_session: This routine is used to add a new session to a course offering. The
 -- update offering trigger
@@ -1148,7 +1135,8 @@ AS $$
         VALUES (course, launch, new_sid, new_start_date, start, (start+session_duration), instructor, room);
       -- update offering since start date or send date may change after new swssion being inserted
       UPDATE Offerings
-        SET start_date = COALESCE(LEAST(start_date, new_start_date), 0), end_date = COALESCE(GREATEST(end_date, new_start_date), 0)
+      -- check coalesce date
+        SET start_date = LEAST(start_date, new_start_date), end_date = GREATEST(end_date, new_start_date)
         WHERE course_id = course AND launch_date = launch;
       -- update the seating_capacity
       UPDATE Offerings
@@ -1568,12 +1556,9 @@ CREATE OR REPLACE FUNCTION total_fee(M_eid INTEGER)
 $$ LANGUAGE plpgsql;
 
 
--- syntax correct
 CREATE OR REPLACE FUNCTION highest_total_fees(year INTEGER, M_eid INTEGER)
 RETURNS TABLE(title TEXT) AS $$
--- title of the course offering that has the highest total net registration fees among all the course offering
--- title of the course offering that has the highest total net registration fees among all the course offering
-  SELECT R.title
+SELECT R.title
 FROM
   ((SELECT course_id FROM Offerings WHERE course_id IN (SELECT course_id FROM Courses WHERE course_area IN (SELECT name FROM Course_areas WHERE eid = M_eid))
     AND EXTRACT(YEAR FROM end_date) = year AND fee_one_offering(course_id, launch_date, fees) = (SELECT max(fee_one_offering(course_id, launch_date, fees))
@@ -1586,7 +1571,6 @@ ON (A.course_id = B.course_id)) R
 $$ LANGUAGE SQL;
 
 
--- syntax correct
 CREATE OR REPLACE FUNCTION view_manager_report()
 RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGER, total_registration_fee NUMERIC, course_title TEXT) AS $$
   DECLARE
@@ -1645,7 +1629,6 @@ $$ LANGUAGE plpgsql;
 -- SELECT fee_one_offering(4, DATE '2020-09-01', 10.90)
 -- SELECT total_fee(6);  -- ?always return null
 -- SELECT * FROM view_manager_report()
-
 
 
 /* TRIGGERS */
