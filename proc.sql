@@ -1655,7 +1655,7 @@ $$ LANGUAGE plpgsql;
 -- syntax correct
 CREATE OR REPLACE FUNCTION highest_total_fees(year INTEGER, M_eid INTEGER)
 RETURNS TABLE(title TEXT) AS $$
-  -- highest total net registration fees among all the course offerings
+-- title of the course offering that has the highest total net registration fees among all the course offering
   (SELECT B.title
   FROM (
     (SELECT course_id, COALESCE(MAX(f), 0)
@@ -1945,7 +1945,7 @@ BEGIN
     IF (SELECT depart_date FROM Employees E WHERE E.eid = NEW.eid) <= CURRENT_DATE THEN
         RAISE EXCEPTION 'The manager has already left the company.';
         RETURN NULL;
-    ELSE 
+    ELSE
         RETURN NEW;
     END IF;
 END;
