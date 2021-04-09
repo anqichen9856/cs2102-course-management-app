@@ -10,8 +10,8 @@ DROP FUNCTION IF EXISTS pay_salary ();
 DROP FUNCTION IF EXISTS promote_courses ();
 
 DROP PROCEDURE IF EXISTS add_course_offering (INT, NUMERIC, DATE, DATE, INT, INT, TEXT[][]);
-DROP PROCEDURE IF EXISTS add_course_package (TEXT, INT, DATE, DATE, NUMERIC); 
-DROP FUNCTION IF EXISTS get_available_instructors (INT, DATE, DATE); 
+DROP PROCEDURE IF EXISTS add_course_package (TEXT, INT, DATE, DATE, NUMERIC);
+DROP FUNCTION IF EXISTS get_available_instructors (INT, DATE, DATE);
 DROP FUNCTION IF EXISTS find_rooms (DATE, NUMERIC, NUMERIC);
 DROP FUNCTION IF EXISTS get_available_rooms (DATE, DATE);
 DROP FUNCTION IF EXISTS get_available_course_packages();
@@ -19,7 +19,7 @@ DROP FUNCTION IF EXISTS top_packages (INT);
 DROP FUNCTION IF EXISTS popular_courses ();
 
 DROP PROCEDURE IF EXISTS buy_course_package (INT, INT);
-DROP PROCEDURE IF EXISTS register_session (INT, INT, DATE, INT, INT); 
+DROP PROCEDURE IF EXISTS register_session (INT, INT, DATE, INT, INT);
 DROP FUNCTION IF EXISTS get_my_course_package (INT);
 DROP FUNCTION IF EXISTS get_available_course_offerings ();
 DROP FUNCTION IF EXISTS get_available_course_sessions (INT, DATE);
@@ -32,7 +32,7 @@ DROP PROCEDURE IF EXISTS update_instructor(INTEGER, DATE, INTEGER, INTEGER);
 DROP PROCEDURE IF EXISTS update_room(INTEGER, DATE, INTEGER, INTEGER);
 DROP PROCEDURE IF EXISTS remove_session(INTEGER, DATE, INTEGER);
 DROP PROCEDURE IF EXISTS add_session(INTEGER, DATE, INTEGER, DATE, NUMERIC(4,2), INTEGER, INTEGER);
-DROP FUNCTION IF EXISTS find_cards(INTEGER); 
+DROP FUNCTION IF EXISTS find_cards(INTEGER);
 DROP FUNCTION IF EXISTS in_registers(INTEGER, INTEGER, DATE);
 DROP FUNCTION IF EXISTS student_in_session(INTEGER, DATE, INTEGER);
 DROP FUNCTION IF EXISTS check_cancel(INTEGER, DATE, INTEGER);
@@ -1533,7 +1533,7 @@ RETURN QUERY WITH salaries AS (
   GROUP BY year, month
 )
 SELECT V.month, V.year, COALESCE(salary_sum, 0), COALESCE(packages_count, 0), COALESCE(fees_sum, 0), COALESCE(refund_sum, 0), COALESCE(redeems_count, 0) - COALESCE(cancels_count, 0)
-FROM ViewedMonths V NATURAL LEFT OUTER JOIN salaries NATURAL LEFT OUTER JOIN sold_packages NATURAL LEFT OUTER JOIN paid_fees NATURAL LEFT OUTER JOIN refunded_fees 
+FROM ViewedMonths V NATURAL LEFT OUTER JOIN salaries NATURAL LEFT OUTER JOIN sold_packages NATURAL LEFT OUTER JOIN paid_fees NATURAL LEFT OUTER JOIN refunded_fees
 NATURAL LEFT OUTER JOIN redemptions NATURAL LEFT OUTER JOIN cancels
 ORDER BY V.year DESC;
 DROP TABLE ViewedMonths;
@@ -1598,11 +1598,11 @@ BEGIN
   );
   -- total fees for one offering
   fees_offering := fees_register + fees_redeem;
-  RETURN fees_offering;
+  RETURN COALESCE(fees_offering);
 END;
 $$ LANGUAGE plpgsql;
 
--- syntax correct
+-- ???????
 CREATE OR REPLACE FUNCTION total_fee(M_eid INTEGER)
   RETURNS NUMERIC AS $$
   DECLARE
@@ -1625,7 +1625,7 @@ CREATE OR REPLACE FUNCTION total_fee(M_eid INTEGER)
       total_fee := total_fee + fees_offering;
     END LOOP;
     CLOSE curs_o;
-    RETURN total_fee;
+    RETURN COALESCE(total_fee);
   END;
 $$ LANGUAGE plpgsql;
 
