@@ -103,7 +103,8 @@ BEGIN
             FROM Sessions S
             WHERE S.rid = r.rid
             AND S.date = session_date
-            AND ((start_hour >= S.start_time AND start_hour < S.end_time) OR (end_hour > S.start_time AND end_hour <= S.end_time))
+            AND ((start_hour >= S.start_time AND start_hour < S.end_time) OR (end_hour > S.start_time AND end_hour <= S.end_time)
+                OR (S.start_time >= start_hour AND S.start_time < end_hour) OR (S.end_time > start_hour AND S.end_time <= end_hour))
         )
         THEN 
             rid := r.rid;
