@@ -963,11 +963,11 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
       RAISE EXCEPTION 'the customer not register or redeem any session or canceled, no session can be cancel for this customer';
     -- the customer registered/redeem in a session
     ELSE
-      SELECT COALESCE(MAX(date))
+      SELECT COALESCE(MAX(date), 0)
         INTO latest_redeem
         FROM Redeems
         WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
-      SELECT COALESCE(MAX(date))
+      SELECT COALESCE(MAX(date), 0)
         INTO latest_register
         FROM Registers
         WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
@@ -1196,7 +1196,7 @@ AS $$
         VALUES (course, launch, new_sid, new_start_date, start, (start+session_duration), instructor, room);
       -- update offering since start date or send date may change after new swssion being inserted
       UPDATE Offerings
-        SET start_date = COALESCE(LEAST(start_date, new_start_date)), end_date = COALESCE(GREATEST(end_date, new_start_date))
+        SET start_date = COALESCE(LEAST(start_date, new_start_date), 0), end_date = COALESCE(GREATEST(end_date, new_start_date), 0)
         WHERE course_id = course AND launch_date = launch;
       -- update the seating_capacity
       UPDATE Offerings
@@ -1598,7 +1598,7 @@ BEGIN
   );
   -- total fees for one offering
   fees_offering := fees_register + fees_redeem;
-  RETURN COALESCE(fees_offering);
+  RETURN COALESCE(fees_offering, 0);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1625,7 +1625,7 @@ CREATE OR REPLACE FUNCTION total_fee(M_eid INTEGER)
       total_fee := total_fee + fees_offering;
     END LOOP;
     CLOSE curs_o;
-    RETURN COALESCE(total_fee);
+    RETURN COALESCE(total_fee, 0);
   END;
 $$ LANGUAGE plpgsql;
 
@@ -1636,7 +1636,7 @@ RETURNS TABLE(title TEXT) AS $$
   -- highest total net registration fees among all the course offerings
   (SELECT B.title
   FROM (
-    (SELECT course_id, COALESCE(MAX(f))
+    (SELECT course_id, COALESCE(MAX(f), 0)
     FROM (
       SELECT course_id, fee_one_offering(course_id, launch_date, fees) AS f
       FROM Offerings
@@ -2243,8 +2243,8 @@ AS $$
     ELSIf OLD.date < CURRENT_DATE THEN
       RAISE EXCEPTION 'The course session has started';
     ELSE
-      SELECT COALESCE(MIN(date)) INTO offering_start FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
-      SELECT COALESCE(MAX(date)) INTO offering_end FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+      SELECT COALESCE(MIN(date), 0) INTO offering_start FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+      SELECT COALESCE(MAX(date), 0) INTO offering_end FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
       SELECT rid INTO room_id FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date AND sid = OLD.sid;
       SELECT seating_capacity INTO room_deleted_session FROM Rooms WHERE rid = room_id;
       UPDATE Offerings
