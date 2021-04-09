@@ -603,7 +603,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION get_available_course_offerings()
 RETURNS TABLE(course_title TEXT, course_area TEXT, start_date DATE, end_date DATE, registration_deadline DATE, course_fees NUMERIC, num_remaining_seats INT)
 AS $$
-SELECT title, course_area, start_date, end_date, registration_deadline, fees, (seating_capacity - count_registers - count_redeems + count_cancels) AS num_remaining_seats
+SELECT title, course_area, start_date, end_date, registration_deadline, fees, (seating_capacity - count_registers - count_redeems + count_cancels)::INT AS num_remaining_seats
 FROM (
   SELECT title, course_area, start_date, end_date, registration_deadline, fees, seating_capacity
   , COALESCE (count1, 0) AS count_registers
