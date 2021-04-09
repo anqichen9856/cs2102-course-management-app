@@ -432,6 +432,9 @@ DECLARE
 	m TEXT[];
 	duration NUMERIC;
 BEGIN
+    IF cid NOT IN (SELECT course_id FROM Courses) THEN
+      RAISE EXCEPTION 'Course does not exist.';
+    END IF;
     FOREACH m SLICE 1 IN ARRAY session_info
     LOOP
         date := m[1]::DATE;
