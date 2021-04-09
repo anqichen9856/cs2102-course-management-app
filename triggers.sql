@@ -485,6 +485,7 @@ AS $$
   BEGIN
     SELECT duration INTO session_duration FROM Courses WHERE course_id = NEW.course_id;
     -- check that the no session can overlap
+
     IF check_overlap(NEW.rid, NEW.date, NEW.start_time, NEW.end_time) THEN
       RAISE EXCEPTION 'The new session from % to % on % at room % overlaps with other session', NEW.start_time, NEW.end_time, NEW.date, NEW.rid;
 
