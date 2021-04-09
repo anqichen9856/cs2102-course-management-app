@@ -196,9 +196,9 @@ DECLARE
     session_end_time NUMERIC;
     total_hours_that_month NUMERIC;
 BEGIN
-    SELECT course_area, duration, launch_date INTO a, d FROM Courses WHERE course_id = cid;
+    SELECT course_area, duration INTO a, d FROM Courses WHERE course_id = cid;
     session_end_time := session_start_time + d;
-    IF (EXTRACT(DOW FROM date)) NOT IN (1,2,3,4,5) THEN
+    IF (EXTRACT(DOW FROM session_date)) NOT IN (1,2,3,4,5) THEN
         RAISE EXCEPTION 'Session date % is not a weekday.', session_date;
     END IF;
     IF NOT ((session_start_time >= 9 AND session_end_time <= 12) OR (session_start_time >= 14 AND session_end_time <= 18)) THEN
