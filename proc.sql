@@ -153,7 +153,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 --5
-CREATE OR REPLACE PROCEDURE add_course (title TEXT, description TEXT, area TEXT, duration INTEGER)
+CREATE OR REPLACE PROCEDURE add_course (title TEXT, description TEXT, area TEXT, duration NUMERIC)
 AS $$
 DECLARE
     new_course_id INTEGER;
@@ -420,6 +420,9 @@ DECLARE
 	m TEXT[];
 	duration NUMERIC;
 BEGIN
+    IF cid NOT IN (SELECT course_id FROM Courses) THEN
+      RAISE EXCEPTION 'Course does not exist.';
+    END IF;
     FOREACH m SLICE 1 IN ARRAY session_info
     LOOP
         date := m[1]::DATE;
