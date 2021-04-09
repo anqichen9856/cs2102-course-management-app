@@ -1523,8 +1523,6 @@ $$ LANGUAGE plpgsql;
 -- 5. the course offering title (i.e., course title) that has the *highest total net registration fees* #among all the course offerings that ended this year that are managed by the manager
 
 -- Each manager manages zero or more course areas, and each course area is managed by exactly one manager. Each course offering is managed by the manager of that course area.
-
-DROP FUNCTION fee_one_offering(integer,date,numeric);
 CREATE OR REPLACE FUNCTION fee_one_offering(course INTEGER, launch DATE, fees NUMERIC(10,2))
   RETURNS NUMERIC AS $$
 DECLARE
