@@ -406,7 +406,7 @@ $$ LANGUAGE plpgsql;
 -- 24. add_session: This routine is used to add a new session to a course offering. The
 -- update offering trigger
 -- syntax correct
-CREATE OR REPLACE PROCEDURE add_session (course INTEGER, launch DATE, new_sid INTEGER, start_date DATE, start NUMERIC(4,2), instructor INTEGER, room INTEGER)
+CREATE OR REPLACE PROCEDURE add_session (course INTEGER, launch DATE, new_sid INTEGER, new_start_date DATE, start NUMERIC(4,2), instructor INTEGER, room INTEGER)
 AS $$
   DECLARE
     session_duration NUMERIC(4,2);
@@ -442,10 +442,10 @@ AS $$
       SELECT duration INTO session_duration FROM Courses WHERE course_id = course;
 
       INSERT INTO Sessions
-        VALUES (course, launch, new_sid, start_date, start, (start+session_duration), instructor, room);
+        VALUES (course, launch, new_sid, new_start_date, start, (start+session_duration), instructor, room);
       -- update offering since start date or send date may change after new swssion being inserted
       UPDATE Offerings
-        SET start_date = COALESCE(LEAST(start_date, NEW.date)), end_date = COALESCE(GREATEST(end_date, NEW.date))
+        SET start_date = COALESCE(LEAST(start_date, new_start_date)), end_date = COALESCE(GREATEST(end_date, new_start_date))
         WHERE course_id = course AND launch_date = launch;
       -- update the seating_capacity
       UPDATE Offerings
