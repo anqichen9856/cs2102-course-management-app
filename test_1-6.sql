@@ -1,3 +1,11 @@
+DO language plpgsql $$
+BEGIN
+  RAISE NOTICE 'hello, world!';
+END
+$$;
+
+(VALUES (row), (row))
+
 CALL add_employee (
 	'Jasmine', 
 	'12 Kent Ridge Drive', 

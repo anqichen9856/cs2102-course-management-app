@@ -1,7 +1,9 @@
+DROP PROCEDURE IF EXISTS do_db_maintenance();
+
+
 -- 1
 CREATE OR REPLACE PROCEDURE add_employee (
     name TEXT, address TEXT, phone TEXT, email TEXT, salary_type TEXT, salary NUMERIC, join_date DATE, category TEXT, course_areas TEXT ARRAY
-    -- course_areas: '{"a", "b", ...}'
 )
 AS $$
 DECLARE
@@ -122,16 +124,18 @@ END;
 $$ LANGUAGE plpgsql;
 
 --6
--- instructor must be active employee (depart_date is null or <= session_date)
--- an instructor who is assigned to teach a course session must be specialized in that course area. 
--- Each instructor can teach at most one course session at any hour. 
-    -- s,e are new session
-    -- overlap：s <= s' <= e or s <= e' <= e (mutual)
--- there must be at least one hour of break between any two course sessions that the instructor is teaching
-    -- s,e are new session
-    -- <1h break: s-1 < e' <= s or e <= s' < e+1
--- Each part-time instructor must not teach more than 30 hours for each month
-    -- the month that contains session_date
+/*
+- instructor must be active employee (depart_date is null or <= session_date)
+- an instructor who is assigned to teach a course session must be specialized in that course area. 
+- Each instructor can teach at most one course session at any hour. 
+    - s,e are new session
+    - overlap：s <= s' <= e or s <= e' <= e (mutual)
+- there must be at least one hour of break between any two course sessions that the instructor is teaching
+    - s,e are new session
+    - <1h break: s-1 < e' <= s or e <= s' < e+1
+- Each part-time instructor must not teach more than 30 hours for each month
+    - the month that contains session_date
+*/
 CREATE OR REPLACE FUNCTION find_instructors (cid INTEGER, session_date DATE, session_start_time NUMERIC)
 RETURNS TABLE (eid INTEGER, name TEXT) AS $$ 
 DECLARE

@@ -502,11 +502,9 @@ AS $$
   END;
 $$ LANGUAGE plpgsql;
 
-CREATE CONSTRAINT TRIGGER insert_session_trigger
+CREATE TRIGGER insert_session_trigger
 BEFORE INSERT ON Sessions
-DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION insert_session_func();
-
 
 
 
