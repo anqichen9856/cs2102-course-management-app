@@ -1533,7 +1533,7 @@ RETURN QUERY WITH salaries AS (
   GROUP BY year, month
 )
 SELECT V.month, V.year, COALESCE(salary_sum, 0), COALESCE(packages_count, 0), COALESCE(fees_sum, 0), COALESCE(refund_sum, 0), COALESCE(redeems_count, 0) - COALESCE(cancels_count, 0)
-FROM ViewedMonths V NATURAL LEFT OUTER JOIN salaries NATURAL LEFT OUTER JOIN sold_packages NATURAL LEFT OUTER JOIN paid_fees NATURAL LEFT OUTER JOIN refunded_fees 
+FROM ViewedMonths V NATURAL LEFT OUTER JOIN salaries NATURAL LEFT OUTER JOIN sold_packages NATURAL LEFT OUTER JOIN paid_fees NATURAL LEFT OUTER JOIN refunded_fees
 NATURAL LEFT OUTER JOIN redemptions NATURAL LEFT OUTER JOIN cancels
 ORDER BY V.year DESC;
 DROP TABLE ViewedMonths;
