@@ -128,8 +128,8 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
       students := student_in_session(course, launch, new_sid); -- students in the new session before the customer update
       SELECT seating_capacity INTO seat FROM Rooms WHERE rid = new_rid; -- the seat capacity of the new session
 
-      IF NOT EXISTS(SELECT * FROM costommers WHERE cust_id = cust) THEN
-        RAISE EXCEPTION 'this costommer is not exist';
+      IF NOT EXISTS(SELECT * FROM Customers WHERE cust_id = cust) THEN
+        RAISE EXCEPTION 'this customer is not exist';
       ELSIF new_date < CURRENT_DATE THEN
         RAISE EXCEPTION 'session started';
 
@@ -137,11 +137,11 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
       ELSIF check_cancel(course, launch, cust) = 0 THEN
         RAISE EXCEPTION 'the custommer not register or redeem or canceled';
 
-      -- check there are seat in the new session: if the number of student in the new session after the costommer updated into new session exceeds the room capacity
+      -- check there are seat in the new session: if the number of student in the new session after the customer updated into new session exceeds the room capacity
       ELSIF (students + 1 > seat) THEN
         RAISE EXCEPTION 'no seat in new session';
 
-      -- if costommer register directly, the record of that costommer in register
+      -- if customer register directly, the record of that customer in register
       -- since a customer can register for at most one of its sessions before its registration deadline
       -- it is guaranteed that there is only one record for one customer in registers/redeems
       ELSIF inRegister(cust, course, launch) THEN
@@ -169,7 +169,7 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
               HAVING max(date));
 
       --ELSE
-        --RAISE EXCEPTION 'costommer did not register directly or redeem a session';
+        --RAISE EXCEPTION 'customer did not register directly or redeem a session';
       END IF;
     END IF;
   END;
@@ -177,9 +177,9 @@ $$ LANGUAGE plpgsql;
 -- test 19:
 -- 1 new session started
 -- CALL update_course_session (2, 2, DATE '2020-10-05', 2);
--- 2 costommer redeem
+-- 2 customer redeem
 -- CALL update_course_session (2, 5, DATE '2021-03-10', 2);
--- 3 costommer register directly
+-- 3 customer register directly
 --
 -- 4 session is not avaliable
 -- CALL update_course_session (8, 5, DATE '2021-03-30', 2);
@@ -205,10 +205,10 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
     if_register INTEGER; -- 1 if is register, 0 if is not register
 
   BEGIN
-    -- check if cancellation valid: a costommer cannot cancel a session multiple times
+    -- check if cancellation valid: a customer cannot cancel a session multiple times
     IF check_cancel(course, launch, cust) = 0 THEN
-      RAISE EXCEPTION 'the costommer not register or redeem any session or canceled, no session can be cancel for this customer';
-    -- the costommer registered/redeem in a session
+      RAISE EXCEPTION 'the customer not register or redeem any session or canceled, no session can be cancel for this customer';
+    -- the customer registered/redeem in a session
     ELSE
       SELECT COALESCE(MAX(date))
         INTO latest_redeem
@@ -273,9 +273,9 @@ $$ LANGUAGE plpgsql;
 -- test 20:
 -- 1 pass the date
 -- CALL cancel_registration (2, 2, DATE '2020-10-05');
--- 2 costommer register directly
+-- 2 customer register directly
 -- CALL cancel_registration (8, 5, DATE '2021-03-30');
--- 3 costommer redeem
+-- 3 customer redeem
 --
 -- null value in column "sid" violates not-null constraint
 -- CALL cancel_registration (2, 5, DATE '2021-03-30');
@@ -406,7 +406,7 @@ $$ LANGUAGE plpgsql;
 -- 24. add_session: This routine is used to add a new session to a course offering. The
 -- update offering trigger
 -- syntax correct
-CREATE OR REPLACE PROCEDURE add_session (course INTEGER, launch DATE, new_sid INTEGER, start_date DATE, start NUMERIC(4,2), instructor INTEGER, room INTEGER)
+CREATE OR REPLACE PROCEDURE add_session (course INTEGER, launch DATE, new_sid INTEGER, new_start_date DATE, start NUMERIC(4,2), instructor INTEGER, room INTEGER)
 AS $$
   DECLARE
     session_duration NUMERIC(4,2);
@@ -425,13 +425,13 @@ AS $$
     -- find the seat capacity if inserted new session
     SELECT SUM(seating_capacity) + seat -- the sum of seat capacity of rooms in offering + the seat capacity of the room of the new session
       INTO new_capacity
-      FROM (Session S INNER JOIN Rooms R ON (S.rid = R.rid)) O
+      FROM (Sessions S INNER JOIN Rooms R ON (S.rid = R.rid)) O
       WHERE course_id = course AND launch_date = launch;
 
     IF NOT EXISTS(SELECT * FROM Offerings WHERE course_id = course AND launch_date = launch) THEN
       RAISE EXCEPTION 'course offering does not exist, unable to add session';
 
-    ELSIF CURRENT_DATE < deadline THEN
+    ELSIF CURRENT_DATE > deadline THEN
       RAISE EXCEPTION 'the course offering’s registration deadline has passed, unable to add session';
 
     ELSIF new_capacity > target_number THEN -- if the new seat capacity < target_number_registrations
@@ -442,10 +442,10 @@ AS $$
       SELECT duration INTO session_duration FROM Courses WHERE course_id = course;
 
       INSERT INTO Sessions
-        VALUES (course, launch, new_sid, start_date, start, (start+session_duration), instructor, room);
+        VALUES (course, launch, new_sid, new_start_date, start, (start+session_duration), instructor, room);
       -- update offering since start date or send date may change after new swssion being inserted
       UPDATE Offerings
-        SET start_date = COALESCE(LEAST(start_date, NEW.date)), end_date = COALESCE(GREATEST(end_date, NEW.date))
+        SET start_date = COALESCE(LEAST(start_date, new_start_date)), end_date = COALESCE(GREATEST(end_date, new_start_date))
         WHERE course_id = course AND launch_date = launch;
       -- update the seating_capacity
       UPDATE Offerings
@@ -490,8 +490,8 @@ DECLARE
 
 BEGIN
   --(excluding any refunded fees due to cancellations)
-  -- costommers register directly
-  -- number of costommer registered directly
+  -- customers register directly
+  -- number of customer registered directly
   SELECT COUNT(*) INTO count_registers
     FROM (
       (SELECT course_id, launch_date FROM Registers WHERE course_id = course AND launch_date = launch)
@@ -500,7 +500,7 @@ BEGIN
     ) A;
   fees_register := count_registers * fees;
 
-  -- costommers redeem
+  -- customers redeem
   SELECT ROUND(SUM(C.price/C.num_free_registrations))
   INTO fees_redeem
   FROM (
@@ -561,7 +561,7 @@ RETURNS TABLE(title TEXT) AS $$
   -- highest total net registration fees among all the course offerings
   (SELECT B.title
   FROM (
-    (SELECT course_id, MAX(f)
+    (SELECT course_id, COALESCE(MAX(f))
     FROM (
       SELECT course_id, fee_one_offering(course_id, launch_date, fees) AS f
       FROM Offerings
@@ -581,7 +581,7 @@ $$ LANGUAGE SQL;
 
 -- syntax correct
 CREATE OR REPLACE FUNCTION view_manager_report()
-RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGER, total_registratino_fee NUMERIC, course_title TEXT) AS $$
+RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGER, total_registration_fee NUMERIC, course_title TEXT) AS $$
   DECLARE
     current_year INTEGER;
     max_offering_fee NUMERIC;
@@ -613,7 +613,7 @@ RETURNS TABLE (M_name TEXT, num_course_areas INTEGER, num_course_offering INTEGE
           AND EXTRACT(YEAR FROM end_date) = current_year; -- ended this year
 
       -- find total registratino fee
-      total_registratino_fee := total_fee(r_m.eid);
+      total_registration_fee := total_fee(r_m.eid);
 
       -- title of course offering with the highest registration fee.
       OPEN curs_tie FOR (SELECT * FROM highest_total_fees(current_year, r_m.eid));
