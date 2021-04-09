@@ -34,7 +34,6 @@ CREATE TABLE Employees (
 	UNIQUE (name, email, phone, address, join_date, depart_date)
 );
 
--- Trigger to enforce Either Or
 CREATE TABLE Full_time_Emp (
 	eid INTEGER PRIMARY KEY REFERENCES Employees ON DELETE CASCADE,
   	monthly_salary NUMERIC(10,2) NOT NULL CHECK (monthly_salary >= 0)
@@ -115,7 +114,6 @@ CREATE TABLE Offerings (
 	CHECK (seating_capacity >= target_number_registrations)
 );
 
-
 -- include Conducts relationship by eid & rid
 CREATE TABLE Sessions (
 	course_id INTEGER,
@@ -135,7 +133,6 @@ CREATE TABLE Sessions (
 	CHECK (launch_date <= date - INTERVAL '10 days')
 );
 
--- course-employee relationships need to use trigger 
 CREATE TABLE Specializes (
 	eid INTEGER REFERENCES Instructors,
   	area TEXT REFERENCES Course_areas,
@@ -162,8 +159,6 @@ CREATE TABLE Owns (
   	card_number TEXT REFERENCES Credit_cards,
   	from_date DATE NOT NULL,
   	PRIMARY KEY (card_number)
-  	--TPC for Customers trigger: when inserting customer, check credit_card >= 1
-  	--TPC for Credit_card trigger: when inserting credit card, check customers >= 1
 );
 
 CREATE TABLE Course_packages (
@@ -185,7 +180,7 @@ CREATE TABLE Buys (
     PRIMARY KEY (package_id, card_number, date)
 );
 
-CREATE TABLE Redeems(
+CREATE TABLE Redeems (
   	package_id INTEGER,
     card_number TEXT,
   	buy_date DATE,
@@ -200,7 +195,7 @@ CREATE TABLE Redeems(
 	CHECK (launch_date <= date)
 );
 
-CREATE TABLE Registers(
+CREATE TABLE Registers (
   	card_number TEXT REFERENCES Owns,
   	course_id INTEGER,
   	launch_date DATE,
