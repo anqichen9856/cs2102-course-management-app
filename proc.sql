@@ -2123,25 +2123,26 @@ FOR EACH ROW EXECUTE FUNCTION register_if_valid_func();
 -- after a cancelltion, if session is redeemed update the num_remaining_redemptions in Buy if is refundable
 CREATE OR REPLACE FUNCTION update_buy_cancel_func() RETURNS TRIGGER AS $$
   DECLARE
-    pid INTEGER; -- new
-    num_remaining_before INTEGER;
-    buy DATE;
+    pid INT;
+    cardNumber TEXT;
+    buyDate DATE;
   BEGIN
-    -- if the customer use package to redeem and is refundable, package_credit = 1
+    -- if the customer redeemed
     IF NEW.package_credit = 1 THEN
-      -- find the package_id and the buy_date for the canceled session
-      SELECT package_id, buy_date
-        INTO pid, buy FROM Redeems
-        WHERE course_id = NEW.course_id AND launch_date = NEW.launch_date AND card_number IN (SELECT cards FROM find_cards(NEW.cust_id));
 
-      SELECT num_remaining_redemptions
-        INTO num_remaining_before FROM Buys
-        WHERE package_id = pid AND card_number IN (SELECT cards FROM find_cards(NEW.cust_id)) AND date = buy;
+      IF EXISTS (
+        SELECT 1 FROM Sessions S 
+        WHERE NEW.date <= S.date - 7 
+        AND S.course_id = NEW.course_id AND S.launch_date = NEW.launch_date AND S.sid = NEW.sid
+      ) THEN
+        SELECT B.package_id, B.card_number, B.date INTO pid, cardNumber, buyDate FROM Buys B 
+        WHERE EXISTS (SELECT 1 FROM Owns O WHERE NEW.cust_id = O.cust_id AND B.card_number = O.card_number) 
+        ORDER BY B.date DESC LIMIT 1; 
 
-      -- update the package that customer used to redeem the canceled session
-      UPDATE Buys
-        SET num_remaining_redemptions = num_remaining_before + 1
-        WHERE package_id = pid AND card_number IN (SELECT cards FROM find_cards(NEW.cust_id)) AND date = buy;
+        UPDATE Buys SET num_remaining_redemptions = num_remaining_redemptions + 1
+        WHERE package_id = pid AND card_number = cardNumber AND date = buyDate;
+        RETURN NULL;
+      END IF;
     END IF;
     RETURN NULL;
   END;
