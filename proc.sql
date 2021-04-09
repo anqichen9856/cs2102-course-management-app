@@ -1018,6 +1018,9 @@ AS $$
     session_date DATE;
     start_time INTEGER;
   BEGIN
+  IF NOT EXISTS (SELECT 1 FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session_id) THEN
+    RAISE EXCEPTION 'Session information not valid.';
+  END IF;
   SELECT S.date, S.start_time INTO session_date, start_time FROM Sessions S WHERE course_id = course AND launch_date = launch AND sid = session_id;
   IF (new_eid NOT IN (SELECT eid FROM find_instructors (course, session_date, start_time))) THEN
     RAISE EXCEPTION 'new_eid is not valid';
