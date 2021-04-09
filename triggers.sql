@@ -496,7 +496,7 @@ AS $$
 
     -- check if the instructor can teach this session
     ELSIF (NEW.eid NOT IN (SELECT eid FROM find_instructors (NEW.course_id, NEW.date, NEW.start_time))) THEN
-      RAISE EXCEPTION 'Instructor % not avaliable, unable to INSERT or UPDATE', NEW.eid;
+      RAISE EXCEPTION 'Instructor % not avaliable, unable to INSERT or UPDATE, room %, date %, start %, end %', NEW.eid, NEW.rid, NEW.date, NEW.start_time, NEW.end_time;
     ELSE
       RETURN NEW;
     END IF;

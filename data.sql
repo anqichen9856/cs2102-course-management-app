@@ -1,6 +1,6 @@
 --Employees
 INSERT INTO Employees VALUES (1, 'Jonathan Joestar', 'abc@gmail.com', '(+65) 12345678', 'abc street', '2015-01-04', NULL);
-INSERT INTO Employees VALUES (2, 'Dio Brando', 'qqq@gmail.com', '(+65) 12345679', 'bcd street ', '2018-01-01', '2019-12-06');
+INSERT INTO Employees VALUES (2, 'Dio Brando', 'qqq@gmail.com', '(+65) 12345679', 'bcd street ', '2018-01-01', '2021-04-06');
 INSERT INTO Employees VALUES (3, 'Joseph Joestar', 'eee@gmail.com', '(+65) 12345680', 'def street', '2017-08-29', NULL);
 INSERT INTO Employees VALUES (4, 'Lisa Lisa', 'ooo@gmail.com', '(+65) 12345681', 'xxx street', '2016-01-03', NULL);
 INSERT INTO Employees VALUES (5, 'Alice Tan', 'hhh@gmail.com', '(+65) 12345682', 'yyy street', '2008-01-04', NULL);
@@ -124,6 +124,21 @@ INSERT INTO Course_areas VALUES ('Parallel Computing', 19);
 INSERT INTO Course_areas VALUES ('Programming Languages', 19);
 INSERT INTO Course_areas VALUES ('Software Engineering', 19);
 
+--Specializes
+INSERT INTO Specializes VALUES (1, 'Database Systems');
+INSERT INTO Specializes VALUES (2, 'Algorithms & Theory');
+INSERT INTO Specializes VALUES (3, 'Artificial Intelligence');
+INSERT INTO Specializes VALUES (4, 'Computer Graphics and Games');
+INSERT INTO Specializes VALUES (5, 'Computer Security');
+INSERT INTO Specializes VALUES (11, 'Multimedia Information Retrieval');
+INSERT INTO Specializes VALUES (12, 'Networking');
+INSERT INTO Specializes VALUES (13, 'Parallel Computing');
+INSERT INTO Specializes VALUES (14, 'Programming Languages');
+INSERT INTO Specializes VALUES (15, 'Software Engineering');
+INSERT INTO Specializes VALUES (16, 'Computer Security');
+INSERT INTO Specializes VALUES (17, 'Software Engineering');
+INSERT INTO Specializes VALUES (20, 'Database Systems');
+
 --Courses
 INSERT INTO Courses VALUES (1, 'Database Systems', 'The aim of this module is to introduce the fundamental concepts and techniques necessary for the understanding and practice of design and implementation of database applications and of the management of data with relational database management systems.', 'Database Systems', 2.0);
 INSERT INTO Courses VALUES (2, 'Theory of Computation', 'The objective of this module is to provide students with a theoretical understanding of what can be computed, and an introduction to the theory of complexity.', 'Algorithms & Theory', 2.0);
@@ -194,21 +209,6 @@ INSERT INTO Sessions VALUES (10, '2021-03-01', 7, '2021-04-27', 14.0, 18.0, 15, 
 INSERT INTO Sessions VALUES (10, '2021-03-01', 8, '2021-04-28', 14.0, 18.0, 17, 21);
 INSERT INTO Sessions VALUES (10, '2021-03-01', 9, '2021-04-29', 14.0, 18.0, 17, 21);
 INSERT INTO Sessions VALUES (10, '2021-03-01', 10, '2021-04-30', 14.0, 18.0, 17, 21);
-
---Specializes
-INSERT INTO Specializes VALUES (1, 'Database Systems');
-INSERT INTO Specializes VALUES (2, 'Algorithms & Theory');
-INSERT INTO Specializes VALUES (3, 'Artificial Intelligence');
-INSERT INTO Specializes VALUES (4, 'Computer Graphics and Games');
-INSERT INTO Specializes VALUES (5, 'Computer Security');
-INSERT INTO Specializes VALUES (11, 'Multimedia Information Retrieval');
-INSERT INTO Specializes VALUES (12, 'Networking');
-INSERT INTO Specializes VALUES (13, 'Parallel Computing');
-INSERT INTO Specializes VALUES (14, 'Programming Languages');
-INSERT INTO Specializes VALUES (15, 'Software Engineering');
-INSERT INTO Specializes VALUES (16, 'Computer Security');
-INSERT INTO Specializes VALUES (17, 'Software Engineering');
-INSERT INTO Specializes VALUES (20, 'Database Systems');
 
 --Customers
 INSERT INTO Customers VALUES (1, 'Severus Snape', 'xm@gmail.com', '(+86) 11111111', 'Changyang Street');
