@@ -1559,36 +1559,22 @@ BEGIN
   --(excluding any refunded fees due to cancellations)
   -- customers register directly
   -- number of customer registered directly
-  SELECT COUNT(*) INTO count_registers
-    FROM (
-      (SELECT course_id, launch_date FROM Registers WHERE course_id = course AND launch_date = launch)
-		EXCEPT
-      (SELECT course_id, launch_date FROM Cancels WHERE course_id = course AND launch_date = launch)
-    ) A;
+  SELECT COUNT(*)
+    INTO count_registers
+    FROM (SELECT course_id, launch_date FROM Registers WHERE course_id = course AND launch_date = launch) A
+  WHERE (course_id, launch_date) NOT IN (SELECT course_id, launch_date FROM Cancels WHERE course_id = course AND launch_date = launch);
   fees_register := count_registers * fees;
 
-  -- customers redeem
-  SELECT ROUND(SUM(C.price/C.num_free_registrations))
-  INTO fees_redeem
-  FROM (
-    (SELECT C.package_id, C.num_free_registrations, C.price FROM Course_packages C) C
-    INNER JOIN
-    -- packages that used to redeem the couse offering
-    (SELECT R.package_id
-      --FROM (SELECT *
-        FROM (
-          ((SELECT course_id, launch_date FROM Redeems WHERE course_id = course AND launch_date = launch)
-  		  EXCEPT
-          (SELECT course_id, launch_date FROM Cancels WHERE course_id = course AND launch_date = launch)) A
-        INNER JOIN
-          (SELECT package_id, course_id, launch_date FROM Redeems WHERE course_id = course AND launch_date = launch) B
-        ON (A.course_id = B.course_id AND A.launch_date = B.launch_date)
-        ) R
-    --) P
+  SELECT package_id
+    INTO package
+    FROM (SELECT package_id, course_id, launch_date FROM Redeems WHERE course_id = course AND launch_date = launch) C
+  WHERE (course_id, launch_date) NOT IN (SELECT course_id, launch_date FROM Cancels WHERE course_id = 5 AND launch_date = launch);
 
-  ) I
-    ON (C.package_id = I.package_id)
-  );
+  -- customers redeem
+  SELECT COALESCE(ROUND(SUM(C.price/C.num_free_registrations)),0)
+    INTO fees_redeem
+    FROM (SELECT package_id, num_free_registrations, price FROM Course_packages) C
+  WHERE package_id = package;
   -- total fees for one offering
   fees_offering := fees_register + fees_redeem;
   RETURN COALESCE(fees_offering, 0);
@@ -1638,7 +1624,7 @@ FROM
     AND EXTRACT(YEAR FROM end_date) = year)) A -- select offering(s) that have highest total net registration fees
   INNER JOIN
   (SELECT course_id, title FROM Courses) B
-ON (A.course_id = B.course_id)) R	
+ON (A.course_id = B.course_id)) R
 $$ LANGUAGE SQL;
 
 
