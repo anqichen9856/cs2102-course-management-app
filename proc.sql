@@ -779,7 +779,6 @@ $$ LANGUAGE plpgsql;
 
 -- 19
 -- this function uses cust_id to find card_number of cards that owned by this customer
--- syntax correct
 CREATE OR REPLACE FUNCTION find_cards(cust INTEGER)
  RETURNS TABLE(cards TEXT) AS $$
   SELECT card_number
@@ -790,8 +789,6 @@ $$ LANGUAGE sql;
 
 -- this function returns a boolean
 -- TRUE if the customer directly register; FALSE if the customer redeem
-
---(cust_id, course_id, launch_date, sid, date)
 CREATE OR REPLACE FUNCTION in_registers(cust INTEGER, course INTEGER, launch DATE)
   RETURNS BOOLEAN AS $$
   SELECT EXISTS (
@@ -880,7 +877,6 @@ $$ LANGUAGE plpgsql;
 
 
 -- 19. update_course_session: a customer requests to change a registered course session to another session.
--- syntax correct
 CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER, launch DATE, new_sid INTEGER) AS $$
   DECLARE
     seat INTEGER;
@@ -900,7 +896,7 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
 
       IF NOT EXISTS(SELECT * FROM Customers WHERE cust_id = cust) THEN
         RAISE EXCEPTION 'this customer is not exist';
-      ELSIF new_date < CURRENT_DATE THEN
+      ELSIF new_date <= CURRENT_DATE THEN
         RAISE EXCEPTION 'session started';
 
       -- make sure the custommer register or redeem one session and that session is not canceled
@@ -924,7 +920,6 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
               FROM Registers
               WHERE course_id = course AND launch_date = launch
               AND card_number IN (SELECT * FROM find_cards(cust)));
-      --ELSIF in_redeems(cust, course, launch) THEN
       -- update in Redeems
       ELSE
         UPDATE Redeems SET sid = new_sid
@@ -946,7 +941,6 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
   DECLARE
     session INTEGER;
     refund_amt NUMERIC(10,2);
-    package_credit INTEGER;
     fee NUMERIC(10,2);
     registered_session_start DATE;
     latest_redeem DATE;
@@ -954,96 +948,83 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
     if_register INTEGER; -- 1 if is register, 0 if is not register
 
   BEGIN
-    -- check if cancellation valid: a customer cannot cancel a session multiple times
+    -- if customer does not have a registered session now, cannot cancel
     IF check_cancel(course, launch, cust) = 0 THEN
       RAISE EXCEPTION 'the customer not register or redeem any session or canceled, no session can be cancel for this customer';
     -- the customer registered/redeem in a session
     ELSE
-      SELECT COALESCE(MAX(date), 0)
+      SELECT MAX(date)
         INTO latest_redeem
         FROM Redeems
         WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
-      SELECT COALESCE(MAX(date), 0)
+      SELECT MAX(date)
         INTO latest_register
         FROM Registers
         WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
 
       -- check the if customer register of redeem
-      IF (latest_redeem <> NULL AND latest_register <> NULL) THEN
+      IF (latest_redeem IS NOT NULL AND latest_register IS NOT NULL) THEN
         IF (latest_redeem > latest_register) THEN
-          if_register = 0;
+          if_register := 0;
         ELSE
-          if_register = 1;
+          if_register := 1;
         END IF;
       ELSE
-        IF (latest_redeem = NULL) THEN
-          if_register = 1;
+        IF (latest_redeem IS NULL) THEN
+          if_register := 1;
         ELSE
-          if_register = 0;
+          if_register := 0;
         END IF;
       END IF;
-
+    
       -- if regester directly
       IF if_register = 1 THEN
-        SELECT sid INTO session FROM Registers WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
+        SELECT sid INTO session FROM Registers WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust)) AND date = latest_register;
         SELECT fees INTO fee FROM Offerings WHERE course_id = course AND launch_date = launch;
         SELECT date INTO registered_session_start FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session;
+        -- check if the session is alr passed. 
+        IF registered_session_start <= CURRENT_DATE THEN
+          RAISE EXCEPTION 'Session started';
+        END IF;
         -- check can be refund
         IF registered_session_start-7 >= CURRENT_DATE THEN
           refund_amt := fee * 0.9;
-          package_credit := 0;
-          INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, package_credit);
         ELSE
           refund_amt := 0; -- not refundable
-          package_credit := 0;
-          INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, package_credit);
-          RAISE NOTICE 'Cancellation will be proceed, but will be no refund as cancellation is made at least 7 days before the day of the registered session';
+          RAISE NOTICE 'Cancellation will be proceed, but will be no refund as cancellation is made at less than 7 days before the day of the registered session';
         END IF;
+        INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, 0);
       -- redeem
       ELSE
-        SELECT sid INTO session FROM Redeems WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust));
+        SELECT sid INTO session FROM Redeems WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust)) AND date = latest_redeem;
         SELECT date INTO registered_session_start FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session;
-        -- check can be refund
-        IF registered_session_start-7 >= CURRENT_DATE THEN
-          refund_amt := 0;
-          package_credit := 1;
-          INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, package_credit);
-        ELSE
-          refund_amt := 0;
-          package_credit := 0; -- not refundable
-          INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, refund_amt, package_credit);
-          RAISE NOTICE 'Cancellation will be proceed, but will be no refund as cancellation is made at least 7 days before the day of the registered session';
+        -- check if the session is alr passed. 
+        IF registered_session_start <= CURRENT_DATE THEN
+          RAISE EXCEPTION 'Session started';
+        END IF;
+        INSERT INTO Cancels VALUES (cust, course, launch, session, CURRENT_DATE, 0, 1);
+        IF registered_session_start-7 < CURRENT_DATE THEN
+          RAISE NOTICE 'Cancellation will be proceed, but the number of remaining redemptions in your package cannot be added back';
         END IF;
       END IF;
     END IF;
   END;
 $$ LANGUAGE plpgsql;
 
--- test 20:
--- 1 pass the date
--- CALL cancel_registration (2, 2, DATE '2020-10-05');
--- 2 customer register directly
--- CALL cancel_registration (8, 5, DATE '2021-03-30');
--- 3 customer redeem
---
--- null value in column "sid" violates not-null constraint
--- CALL cancel_registration (2, 5, DATE '2021-03-30');
-
-
-
 -- 21
--- syntax correct
--- 21. update_instructor: This routine is used to change the instructor for a course session.
 CREATE OR REPLACE PROCEDURE update_instructor (course INTEGER, launch DATE, session_id INTEGER, new_eid INTEGER)
 AS $$
   DECLARE
     session_date DATE;
     start_time INTEGER;
   BEGIN
-  SELECT date, start_time INTO session_date, start_time FROM Sessions WHERE course_id = course AND sid = session_id;
+  IF NOT EXISTS (SELECT 1 FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session_id) THEN
+    RAISE EXCEPTION 'Session information not valid.';
+  END IF;
+  SELECT S.date, S.start_time INTO session_date, start_time FROM Sessions S WHERE course_id = course AND launch_date = launch AND sid = session_id;
   IF (new_eid NOT IN (SELECT eid FROM find_instructors (course, session_date, start_time))) THEN
-    RAISE EXCEPTION 'instructor not avaliable';
-  ELSIF session_date > CURRENT_DATE THEN
+    RAISE EXCEPTION 'new_eid is not valid';
+  ELSIF session_date <= CURRENT_DATE THEN
     RAISE EXCEPTION 'session started';
   ELSE
     UPDATE Sessions
@@ -1052,17 +1033,8 @@ AS $$
   END IF;
   END;
 $$ LANGUAGE plpgsql;
--- test 21:
--- 1 instructor is not available -- ?
--- CALL update_instructor (7, DATE '2021-03-30', 1, 15);
--- 2 instructor is available
---
-
-
 
 -- 22
--- syntax correct
--- 22. update_room: This routine is used to change the room for a course session.
 CREATE OR REPLACE PROCEDURE update_room (course INTEGER, launch DATE, session_id INTEGER, new_rid INTEGER)
 AS $$
   DECLARE
@@ -1081,24 +1053,24 @@ AS $$
     -- the seat capacity offering before the update
     SELECT seating_capacity, target_number_registrations INTO offering_capacity, target FROM Offerings WHERE course_id = course AND launch_date = launch;
 
-
     IF (new_rid NOT IN (SELECT rid FROM find_rooms(session_date, session_start, session_start - session_end))) THEN
       RAISE EXCEPTION 'the room is not available';
 
-    ELSIF session_date > CURRENT_DATE THEN
+    ELSIF session_date <= CURRENT_DATE THEN
       RAISE EXCEPTION 'session started';
 
     ELSE
-      students := student_in_session(course, launch, session);
+      students := student_in_session(course, launch, session_id);
       SELECT seating_capacity INTO seat FROM Rooms WHERE rid = new_rid; -- the seat capacity of the new room
       SELECT seating_capacity INTO seat_old FROM Rooms WHERE rid = old_room ; -- the seat capacity of the old room
 
       -- check if the number of student in the session exceeds the room capacity
-      IF (students <= seat) THEN
+      IF (students > seat) THEN
+        RAISE EXCEPTION 'new room cannot hold the number of registered custoemrs';
 
-      -- if the new room will make the seating capacity of the offering exceeds
+      -- if the new room will make the seating capacity < target number of registration
       ELSIF (offering_capacity - seat_old + seat) < target THEN
-        RAISE EXCEPTION 'seating capacity of offering less than target_number_registrations';
+        RAISE EXCEPTION 'seating capacity of offering less than target number of registrations';
 
       ELSE
         UPDATE Sessions
@@ -1113,24 +1085,11 @@ AS $$
   END;
 $$ LANGUAGE plpgsql;
 
--- test 22:
--- 1 room is available
--- CALL update_room (7, DATE '2021-03-30', 4, 4);
--- 2 room is not available
---
-
-
-
-
--- 23.
-
 -- 23. remove_session: This routine is used to remove a course session.
 CREATE OR REPLACE PROCEDURE remove_session (course INTEGER, launch DATE, session_id INTEGER)
 AS $$
-
   BEGIN
     DELETE FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session_id;
-
   END;
 $$ LANGUAGE plpgsql;
 -- test 23:
@@ -1211,7 +1170,6 @@ $$ LANGUAGE  plpgsql;
 
 
 -- 25
-
 /*
 - find employees whose depart_date >= first day of month
 
@@ -1224,7 +1182,6 @@ $$ LANGUAGE  plpgsql;
 - For a part-time employees, number of work days for the month and monthly salary should be null.
   The salary amount = hourly rate * number of work hours for the month
 */
-
 CREATE OR REPLACE FUNCTION pay_salary ()
 RETURNS TABLE (eid INTEGER, name TEXT, status TEXT, num_work_days INTEGER, num_work_hours NUMERIC, hourly_rate NUMERIC, monthly_salary NUMERIC, amount NUMERIC) AS $$
 DECLARE
@@ -2123,25 +2080,26 @@ FOR EACH ROW EXECUTE FUNCTION register_if_valid_func();
 -- after a cancelltion, if session is redeemed update the num_remaining_redemptions in Buy if is refundable
 CREATE OR REPLACE FUNCTION update_buy_cancel_func() RETURNS TRIGGER AS $$
   DECLARE
-    pid INTEGER; -- new
-    num_remaining_before INTEGER;
-    buy DATE;
+    pid INT;
+    cardNumber TEXT;
+    buyDate DATE;
   BEGIN
-    -- if the customer use package to redeem and is refundable, package_credit = 1
+    -- if the customer redeemed
     IF NEW.package_credit = 1 THEN
-      -- find the package_id and the buy_date for the canceled session
-      SELECT package_id, buy_date
-        INTO pid, buy FROM Redeems
-        WHERE course_id = NEW.course_id AND launch_date = NEW.launch_date AND card_number IN (SELECT cards FROM find_cards(NEW.cust_id));
 
-      SELECT num_remaining_redemptions
-        INTO num_remaining_before FROM Buys
-        WHERE package_id = pid AND card_number IN (SELECT cards FROM find_cards(NEW.cust_id)) AND date = buy;
+      IF EXISTS (
+        SELECT 1 FROM Sessions S 
+        WHERE NEW.date <= S.date - 7 
+        AND S.course_id = NEW.course_id AND S.launch_date = NEW.launch_date AND S.sid = NEW.sid
+      ) THEN
+        SELECT B.package_id, B.card_number, B.date INTO pid, cardNumber, buyDate FROM Buys B 
+        WHERE EXISTS (SELECT 1 FROM Owns O WHERE NEW.cust_id = O.cust_id AND B.card_number = O.card_number) 
+        ORDER BY B.date DESC LIMIT 1; 
 
-      -- update the package that customer used to redeem the canceled session
-      UPDATE Buys
-        SET num_remaining_redemptions = num_remaining_before + 1
-        WHERE package_id = pid AND card_number IN (SELECT cards FROM find_cards(NEW.cust_id)) AND date = buy;
+        UPDATE Buys SET num_remaining_redemptions = num_remaining_redemptions + 1
+        WHERE package_id = pid AND card_number = cardNumber AND date = buyDate;
+        RETURN NULL;
+      END IF;
     END IF;
     RETURN NULL;
   END;
