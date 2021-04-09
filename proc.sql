@@ -1,9 +1,18 @@
-DROP PROCEDURE IF EXISTS add_employee, remove_employee, add_customer, update_credit_card, add_course;
-DROP FUNCTION IF EXISTS find_instructors, pay_salary, promote_courses;
+DROP PROCEDURE IF EXISTS add_employee (TEXT, TEXT, TEXT, TEXT, TEXT, NUMERIC, DATE, TEXT, TEXT ARRAY);
+DROP PROCEDURE IF EXISTS remove_employee (INTEGER, DATE);
+DROP PROCEDURE IF EXISTS add_customer (TEXT, TEXT, TEXT, TEXT, TEXT, DATE, INTEGER);
+DROP PROCEDURE IF EXISTS update_credit_card (INT, TEXT, DATE, INTEGER);
+DROP PROCEDURE IF EXISTS add_course (TEXT, TEXT, TEXT, INTEGER);
+DROP FUNCTION IF EXISTS find_instructors (INTEGER, DATE, NUMERIC);
+DROP FUNCTION IF EXISTS pay_salary ();
+DROP FUNCTION IF EXISTS promote_courses ();
+
 DROP PROCEDURE IF EXISTS add_course_offering, add_course_package; 
 DROP FUNCTION IF EXISTS get_available_instructors, find_rooms, get_available_rooms, get_available_course_packages, top_packages, popular_courses;
+
 DROP PROCEDURE IF EXISTS buy_course_package, register_session;
 DROP FUNCTION IF EXISTS get_my_course_package, get_available_course_offerings, get_available_course_sessions, get_my_registrations, view_summary_report;
+
 DROP PROCEDURE IF EXISTS update_course_session, cancel_registration, update_instructor, update_room, remove_session, add_session;
 DROP FUNCTION IF EXISTS find_cards, in_registers, student_in_session, check_cancel, fee_one_offering, total_fee, highest_total_fees, view_manager_report;
 
@@ -1514,7 +1523,6 @@ $$ LANGUAGE plpgsql;
 
 -- Each manager manages zero or more course areas, and each course area is managed by exactly one manager. Each course offering is managed by the manager of that course area.
 
-DROP FUNCTION fee_one_offering(integer,date,numeric);
 CREATE OR REPLACE FUNCTION fee_one_offering(course INTEGER, launch DATE, fees NUMERIC(10,2))
   RETURNS NUMERIC AS $$
 DECLARE
