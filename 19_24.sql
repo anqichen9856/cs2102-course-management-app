@@ -319,24 +319,19 @@ AS $$
     session_duration NUMERIC(4,2);
 
   BEGIN
-
-    IF NOT EXISTS(SELECT * FROM Offerings WHERE course_id = NEW.course_id AND launch_date = NEW.launch_date) THEN
-      RAISE EXCEPTION 'couese offering does not exist, unable to add session';
+    SELECT duration INTO session_duration FROM Courses WHERE course_id = NEW.course_id;
     -- check that the no session can overlap
-    ELSIF ifOverlap(NEW.rid, NEW.date, NEW.start_time, NEW.end_time) THEN
+    IF ifOverlap(NEW.rid, NEW.date, NEW.start_time, NEW.end_time) THEN
       RAISE EXCEPTION 'the new session is overlap with other session';
-    ELSE
-      SELECT duration INTO session_duration FROM Courses WHERE course_id = NEW.course_id;
 
-      -- check if the room is valiable for the session
-      -- IF NOT EXISTS(SELECT * FROM find_rooms(NEW.date, NEW.start_time, session_duration) WHERE rid = NEW.rid) THEN
-	    IF (NEW.rid NOT IN (SELECT rid FROM find_rooms(NEW.date, NEW.start_time, session_duration))) THEN
-        RAISE EXCEPTION 'the room is not available, unable to INSERT or UPDATE';
+    -- check if the room is valiable for the session
+    -- IF NOT EXISTS(SELECT * FROM find_rooms(NEW.date, NEW.start_time, session_duration) WHERE rid = NEW.rid) THEN
+	  ELSIF (NEW.rid NOT IN (SELECT rid FROM find_rooms(NEW.date, NEW.start_time, session_duration))) THEN
+      RAISE EXCEPTION 'the room is not available, unable to INSERT or UPDATE';
 
-      -- check if the instructor can teach this session
-      ELSIF (NEW.eid NOT IN (SELECT eid FROM find_instructors (NEW.course_id, NEW.date, NEW.start_time))) THEN
-        RAISE EXCEPTION 'instructor not avaliable, unable to INSERT or UPDATE';
-
+    -- check if the instructor can teach this session
+    ELSIF (NEW.eid NOT IN (SELECT eid FROM find_instructors (NEW.course_id, NEW.date, NEW.start_time))) THEN
+      RAISE EXCEPTION 'instructor not avaliable, unable to INSERT or UPDATE';
       ELSE
         RETURN NEW;
       END IF;
@@ -534,7 +529,10 @@ AS $$
       FROM (Session S INNER JOIN Rooms R ON (S.rid = R.rid)) O
       WHERE course_id = course AND launch_date = launch;
 
-    IF CURRENT_DATE < deadline THEN
+    IF NOT EXISTS(SELECT * FROM Offerings WHERE course_id = course AND launch_date = launch) THEN
+      RAISE EXCEPTION 'course offering does not exist, unable to add session';
+
+    ELSIF CURRENT_DATE < deadline THEN
       RAISE EXCEPTION 'the course offering’s registration deadline has passed, unable to add session';
 
     ELSIF new_capacity > target_number THEN -- if the new seat capacity < target_number_registrations
