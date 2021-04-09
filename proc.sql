@@ -1625,11 +1625,8 @@ CREATE OR REPLACE FUNCTION total_fee(M_eid INTEGER)
       total_fee := total_fee + fees_offering;
     END LOOP;
     CLOSE curs_o;
-<<<<<<< HEAD
-    RETURN COALESCE(total_fee,0);
-=======
+
     RETURN COALESCE(total_fee, 0);
->>>>>>> cb518ca2bf47e355c56f822ac9af5b34338c1655
   END;
 $$ LANGUAGE plpgsql;
 
