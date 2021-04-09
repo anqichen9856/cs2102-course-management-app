@@ -1,3 +1,7 @@
+DROP PROCEDURE IF EXISTS add_course_offering, add_course_package; 
+DROP FUNCTION IF EXISTS get_available_instructors, find_rooms, get_available_rooms, get_available_course_packages, top_packages, popular_courses;
+
+
 -- 7 DONE
 -- we need to assume that the start_date and end_date are within the same month.
 -- hour array indicates whether the instructor is available for the entire hour. eg. if a session starting from 15:30, 15 will not be in available hours.

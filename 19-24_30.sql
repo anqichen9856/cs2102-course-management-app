@@ -1,3 +1,6 @@
+DROP PROCEDURE IF EXISTS update_course_session, cancel_registration, update_instructor, update_room, remove_session, add_session;
+DROP FUNCTION IF EXISTS find_cards, in_registers, student_in_session, check_cancel, fee_one_offering, total_fee, highest_total_fees, view_manager_report;
+
 -- 19
 -- this function uses cust_id to find card_number of cards that owned by this customer
 -- syntax correct
@@ -13,18 +16,14 @@ $$ LANGUAGE sql;
 -- TRUE if the customer directly register; FALSE if the customer redeem
 
 --(cust_id, course_id, launch_date, sid, date)
-CREATE OR REPLACE FUNCTION inRegister(cust INTEGER, course INTEGER, launch DATE)
+CREATE OR REPLACE FUNCTION in_registers(cust INTEGER, course INTEGER, launch DATE)
   RETURNS BOOLEAN AS $$
-  DECLARE
-    in_register INTEGER;
-    in_cancel INTEGER;
   BEGIN
   SELECT EXISTS (
 	  SELECT * FROM Registers r
 	  WHERE r.course_id = course AND r.launch_date = launch
 	  AND (r.card_number IN (SELECT * FROM find_cards(cust)))
   );
-
   END;
 $$ LANGUAGE plpgsql;
 
@@ -144,7 +143,7 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
       -- if customer register directly, the record of that customer in register
       -- since a customer can register for at most one of its sessions before its registration deadline
       -- it is guaranteed that there is only one record for one customer in registers/redeems
-      ELSIF inRegister(cust, course, launch) THEN
+      ELSIF in_registers(cust, course, launch) THEN
         -- update in Registers
         UPDATE Registers SET sid = new_sid
           WHERE card_number IN (SELECT * FROM find_cards(cust))

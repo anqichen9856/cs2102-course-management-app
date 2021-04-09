@@ -1,4 +1,5 @@
-DROP PROCEDURE IF EXISTS do_db_maintenance();
+DROP PROCEDURE IF EXISTS add_employee, remove_employee, add_customer, update_credit_card, add_course;
+DROP FUNCTION IF EXISTS find_instructors, pay_salary, promote_courses;
 
 
 -- 1

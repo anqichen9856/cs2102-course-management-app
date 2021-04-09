@@ -1,20 +1,23 @@
+DROP PROCEDURE IF EXISTS buy_course_package, register_session;
+DROP FUNCTION IF EXISTS get_my_course_package, get_available_course_offerings, get_available_course_sessions, get_my_registrations, view_summary_report;
+
 --13 with TRIGGER buy_package_trigger
 CREATE OR REPLACE PROCEDURE buy_course_package (custId INT,packageId INT)
 AS $$
 DECLARE
-n INTEGER;
-cardNumber TEXT;
+  n INTEGER;
+  cardNumber TEXT;
 BEGIN
-IF NOT EXISTS (SELECT 1 FROM Customers WHERE Customers.cust_id = custId) THEN
-RAISE EXCEPTION 'Customer ID % is not valid', custId;
-END IF;
-IF NOT EXISTS (SELECT 1 FROM Course_packages WHERE Course_packages.package_id = packageId) THEN
-RAISE EXCEPTION 'Package ID % is not valid', packageId;
-END IF;
-SELECT num_free_registrations FROM Course_packages P WHERE P.package_id = packageId INTO n; 
-SELECT card_number FROM Owns O WHERE O.cust_id = custId ORDER BY O.from_date DESC LIMIT 1 INTO cardNumber;
-INSERT INTO Buys VALUES (packageId, cardNumber, CURRENT_DATE, n);
-RAISE NOTICE 'The purchase of package % by customer % on % is successful', packageId, custId, CURRENT_DATE;
+  IF NOT EXISTS (SELECT 1 FROM Customers WHERE Customers.cust_id = custId) THEN
+  RAISE EXCEPTION 'Customer ID % is not valid', custId;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM Course_packages WHERE Course_packages.package_id = packageId) THEN
+  RAISE EXCEPTION 'Package ID % is not valid', packageId;
+  END IF;
+  SELECT num_free_registrations FROM Course_packages P WHERE P.package_id = packageId INTO n; 
+  SELECT card_number FROM Owns O WHERE O.cust_id = custId ORDER BY O.from_date DESC LIMIT 1 INTO cardNumber;
+  INSERT INTO Buys VALUES (packageId, cardNumber, CURRENT_DATE, n);
+  RAISE NOTICE 'The purchase of package % by customer % on % is successful', packageId, custId, CURRENT_DATE;
 END;                
 $$ LANGUAGE plpgsql;
 -- CALL buy_course_package(1,1);
@@ -26,12 +29,12 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION get_my_course_package (custId INT)
 RETURNS json AS $$
 DECLARE
-result JSON;
-buyDate Date;
-packageId INT;
-cardNumber TEXT;
-remainingRedem INT;
-hasPackage INT := 0;
+  result JSON;
+  buyDate Date;
+  packageId INT;
+  cardNumber TEXT;
+  remainingRedem INT;
+  hasPackage INT := 0;
 BEGIN
 IF NOT EXISTS (SELECT 1 FROM Customers WHERE Customers.cust_id = custId) THEN
 RAISE EXCEPTION 'Customer ID % is not valid', custId;
@@ -203,11 +206,11 @@ CREATE OR REPLACE FUNCTION get_my_registrations(custId INT)
 RETURNS TABLE(course_title TEXT, fees NUMERIC, session_date DATE, start_time NUMERIC, duration NUMERIC, instructor_name TEXT) 
 AS $$
 DECLARE 
-currentDate DATE;
-currentHour NUMERIC;
-currentMinute NUMERIC;
-currentSecond NUMERIC;
-toHour NUMERIC;
+  currentDate DATE;
+  currentHour NUMERIC;
+  currentMinute NUMERIC;
+  currentSecond NUMERIC;
+  toHour NUMERIC;
 BEGIN
 IF NOT EXISTS (SELECT 1 FROM Customers WHERE Customers.cust_id = custId) THEN
 RAISE EXCEPTION 'Customer ID % is not valid', custId;
@@ -257,11 +260,11 @@ CREATE OR REPLACE FUNCTION view_summary_report(n INT)
 RETURNS TABLE (month INT, year INT, total_salaries NUMERIC, total_sold_packages BIGINT, total_paid_fees NUMERIC, total_refunded_fees NUMERIC, total_redemptions BIGINT)
 AS $$
 DECLARE 
-currentDate DATE;
-counterMonth TIMESTAMP;
-startMonth TIMESTAMP;
-mm INT;
-yy INT;
+  currentDate DATE;
+  counterMonth TIMESTAMP;
+  startMonth TIMESTAMP;
+  mm INT;
+  yy INT;
 BEGIN
 IF n < 1 THEN
 RAISE EXCEPTION 'Input number of months % is not a positive integer', n;
