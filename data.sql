@@ -151,6 +151,7 @@ INSERT INTO Courses VALUES (7, 'Internet Architecture', 'This module aims to foc
 INSERT INTO Courses VALUES (8, 'Multi-core Architecture', 'The world of parallel computer architecture has gone through a significant transformation in the recent years from high-end supercomputers used only for scientific applications to the multi-cores (multiple processing cores on a single chip) that are ubiquitous in mainstream computing systems including desktops, servers, and embedded systems.', 'Parallel Computing', 1.0);
 INSERT INTO Courses VALUES (9, 'Compiler Design', 'The objective of this module is to introduce the principal ideas behind program compilation, and discusses various techniques for program parsing, program analysis, program optimisation, and run-time organisation required for program execution.', 'Programming Languages', 1.5);
 INSERT INTO Courses VALUES (10, 'Formal Methods for Software Engineering', 'This module will cover formal specification and verification techniques for accurately capturing and reasoning about requirements, model and code.', 'Software Engineering', 4.0);
+INSERT INTO Courses VALUES (11, 'Introduction to AI', 'easy AI module', 'Artificial Intelligence', 3.0);
 
 --Offerings
 INSERT INTO Offerings VALUES (1, '2020-09-01', '2020-10-01', '2020-10-05', '2020-09-20', 100, 160, 39.9, 9);
@@ -171,6 +172,7 @@ INSERT INTO Offerings VALUES (5, '2021-03-30', '2021-05-10', '2021-05-10', '2021
 INSERT INTO Offerings VALUES (3, '2021-04-30', '2021-06-22', '2021-06-22', '2021-05-06', 15, 90, 125.8, 18);
 INSERT INTO Offerings VALUES (10, '2021-03-01', '2021-04-05', '2021-04-30', '2021-03-15', 10, 10, 79.9, 18);
 INSERT INTO Offerings VALUES (3, '2019-04-18', '2019-05-06', '2019-05-06', '2019-04-19', 15, 90, 125.8, 18);
+INSERT INTO Offerings VALUES (11, '2021-05-01', '2021-06-01', '2021-06-01', '2021-05-05', 1, 1, 59.9, 9);
 
 --Sessions
 INSERT INTO Sessions VALUES (1, '2020-09-01', 1, '2020-10-01', 9.0, 11.0, 1, 1);
@@ -212,6 +214,7 @@ INSERT INTO Sessions VALUES (10, '2021-03-01', 8, '2021-04-28', 14.0, 18.0, 17, 
 INSERT INTO Sessions VALUES (10, '2021-03-01', 9, '2021-04-29', 14.0, 18.0, 17, 21);
 INSERT INTO Sessions VALUES (10, '2021-03-01', 10, '2021-04-30', 14.0, 18.0, 17, 21);
 INSERT INTO Sessions VALUES (3, '2019-04-18', 1, '2019-05-06', 14.0, 17.0, 3, 15);
+INSERT INTO Sessions VALUES (11, '2021-05-01', 1, '2021-06-01', 14.0, 17.0, 3, 22);
 
 --Customers
 INSERT INTO Customers VALUES (1, 'Severus Snape', 'xm@gmail.com', '(+86) 11111111', 'Changyang Street');
@@ -344,6 +347,7 @@ INSERT INTO Registers VALUES ('A123456789014', 8, '2021-03-01', 3, '2021-03-03')
 INSERT INTO Registers VALUES ('A123456789031', 3, '2019-04-18', 1, '2019-04-18');
 INSERT INTO Registers VALUES ('A123456789032', 8, '2021-03-01', 3, '2021-03-03');
 INSERT INTO Registers VALUES ('A123456789032', 10, '2021-03-01', 8, '2021-03-01');
+INSERT INTO Registers VALUES ('A123456789032', 11, '2021-05-01', 1, '2021-05-01');
 
 --Cancels
 INSERT INTO Cancels VALUES (1, 1, '2020-09-01', 2, '2020-09-28', 35.91, 0);
