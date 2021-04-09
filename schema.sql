@@ -127,7 +127,8 @@ CREATE TABLE Sessions (
   	eid INTEGER REFERENCES Instructors NOT NULL,
   	rid INTEGER REFERENCES Rooms NOT NULL,
   	PRIMARY KEY (course_id, launch_date, sid),
-  	FOREIGN KEY (course_id, launch_date) REFERENCES Offerings ON DELETE CASCADE,
+  	FOREIGN KEY (course_id, launch_date) REFERENCES Offerings ON DELETE CASCADE
+	  	DEFERRABLE INITIALLY DEFERRED,
 	CHECK ((EXTRACT(DOW FROM date)) IN (1,2,3,4,5)),
 	CHECK ((start_time >= 9 and end_time <= 12) or (start_time >= 14 and end_time <= 18)),
 	CHECK (start_time < end_time),
