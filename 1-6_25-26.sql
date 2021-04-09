@@ -126,7 +126,7 @@ $$ LANGUAGE plpgsql;
 
 --6
 /*
-- instructor must be active employee (depart_date is null or <= session_date)
+- instructor must be active employee (depart_date is null or >= session_date)
 - an instructor who is assigned to teach a course session must be specialized in that course area. 
 - Each instructor can teach at most one course session at any hour. 
     - s,e are new session

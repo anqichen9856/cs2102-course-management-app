@@ -30,7 +30,7 @@ $$ LANGUAGE plpgsql;
 /*
 -- this function returns a boolean
 -- TRUE if the customer redeem the course; FALSE if the customer redeem
-CREATE OR REPLACE FUNCTION inRedeem(cust INTEGER, course INTEGER, launch DATE)
+CREATE OR REPLACE FUNCTION in_redeems(cust INTEGER, course INTEGER, launch DATE)
   RETURNS BOOLEAN AS $$
   SELECT EXISTS (
 	  SELECT * FROM Redeems r
@@ -39,7 +39,6 @@ CREATE OR REPLACE FUNCTION inRedeem(cust INTEGER, course INTEGER, launch DATE)
   );
 $$ LANGUAGE sql;
 */
-
 
 
 
@@ -154,7 +153,7 @@ CREATE OR REPLACE PROCEDURE update_course_session (cust INTEGER, course INTEGER,
               WHERE course_id = course AND launch_date = launch
               GROUP BY course_id, launch_date
               HAVING max(date));
-      --ELSIF inRedeem(cust, course, launch) THEN
+      --ELSIF in_redeems(cust, course, launch) THEN
       -- update in Redeems
       ELSE
         UPDATE Redeems SET sid = new_sid
@@ -352,8 +351,8 @@ AS $$
       IF (students <= seat) THEN
 
       -- if the new room will make the seating capacity of the offering exceeds
-      ELSIF (offering_capacity - seat_old + seat) > target THEN
-        RAISE EXCEPTION 'target_number_registrations exceeds';
+      ELSIF (offering_capacity - seat_old + seat) < target THEN
+        RAISE EXCEPTION 'seating capacity of offering less than target_number_registrations';
 
       ELSE
         UPDATE Sessions
@@ -433,8 +432,8 @@ AS $$
     ELSIF CURRENT_DATE > deadline THEN
       RAISE EXCEPTION 'the course offering’s registration deadline has passed, unable to add session';
 
-    ELSIF new_capacity > target_number THEN -- if the new seat capacity < target_number_registrations
-      RAISE EXCEPTION 'seating capacity exceeds target number registrations, unable to add session';
+    ELSIF new_capacity < target_number THEN -- if the new seat capacity < target_number_registrations
+      RAISE EXCEPTION 'seating capacity less than target number registrations, unable to add session';
 
     -- insert to session
     ELSE
@@ -478,7 +477,7 @@ $$ LANGUAGE  plpgsql;
 
 -- Each manager manages zero or more course areas, and each course area is managed by exactly one manager. Each course offering is managed by the manager of that course area.
 
--- syntax correct
+DROP FUNCTION fee_one_offering(integer,date,numeric);
 CREATE OR REPLACE FUNCTION fee_one_offering(course INTEGER, launch DATE, fees NUMERIC(10,2))
   RETURNS NUMERIC AS $$
 DECLARE
@@ -506,8 +505,8 @@ BEGIN
     (SELECT C.package_id, C.num_free_registrations, C.price FROM Course_packages C) C
     INNER JOIN
     -- packages that used to redeem the couse offering
-    (SELECT package_id
-      FROM (SELECT *
+    (SELECT R.package_id
+      --FROM (SELECT *
         FROM (
           ((SELECT course_id, launch_date FROM Redeems WHERE course_id = course AND launch_date = launch)
   		  EXCEPT
@@ -516,7 +515,7 @@ BEGIN
           (SELECT package_id, course_id, launch_date FROM Redeems WHERE course_id = course AND launch_date = launch) B
         ON (A.course_id = B.course_id AND A.launch_date = B.launch_date)
         ) R
-    ) P
+    --) P
 
   ) I
     ON (C.package_id = I.package_id)
@@ -542,6 +541,7 @@ CREATE OR REPLACE FUNCTION total_fee(M_eid INTEGER)
   BEGIN
     total_fee := 0;
     OPEN curs_o;
+    -- ????
     LOOP
       FETCH curs_o INTO r_o;
       EXIT WHEN NOT FOUND;
