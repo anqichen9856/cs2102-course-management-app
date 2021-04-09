@@ -112,6 +112,9 @@ CREATE OR REPLACE PROCEDURE remove_employee (
 )
 AS $$
 BEGIN
+    IF eid_to_remove NOT IN (SELECT E.eid FROM Employees E) THEN
+        RAISE EXCEPTION 'Employee % does not exist.', eid_to_remove;
+    END IF;
     IF EXISTS (
         SELECT 1 FROM Offerings WHERE eid = eid_to_remove AND registration_deadline > depart_date_to_update
     ) THEN RAISE EXCEPTION 'Update operation is rejected: registration deadline of some course offering is after this administrator’s departure date.';
@@ -147,6 +150,9 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE PROCEDURE update_credit_card (cust_id INT, card_number TEXT, expiry_date DATE, cvv INTEGER)
 AS $$
 BEGIN
+    IF cust_id NOT IN (SELECT C.cust_id FROM Customers C) THEN
+        RAISE EXCEPTION 'Customer % does not exist.', cust_id;
+    END IF;
     INSERT INTO Credit_cards VALUES (card_number, expiry_date, cvv);
     INSERT INTO Owns VALUES (cust_id, card_number, CURRENT_DATE);
 END;
@@ -192,6 +198,12 @@ DECLARE
 BEGIN
     SELECT course_area, duration INTO a, d FROM Courses WHERE course_id = cid;
     session_end_time := session_start_time + d;
+    IF (EXTRACT(DOW FROM session_date)) NOT IN (1,2,3,4,5) THEN
+        RAISE EXCEPTION 'Session date % is not a weekday.', session_date;
+    END IF;
+    IF NOT ((session_start_time >= 9 AND session_end_time <= 12) OR (session_start_time >= 14 AND session_end_time <= 18)) THEN
+        RAISE EXCEPTION 'Sessions should be conducted at 9-12am or 2-6pm.';
+    END IF;
     OPEN curs;
     LOOP
         FETCH curs INTO r;
@@ -330,6 +342,12 @@ DECLARE
     end_hour NUMERIC;
 BEGIN
     end_hour := start_hour + duration;
+    IF (EXTRACT(DOW FROM session_date)) NOT IN (1,2,3,4,5) THEN
+        RAISE EXCEPTION 'Session date % is not a weekday.', session_date;
+    END IF;
+    IF NOT ((start_hour >= 9 AND end_hour <= 12) OR (start_hour >= 14 AND end_hour <= 18)) THEN
+        RAISE EXCEPTION 'Sessions should be conducted at 9-12am or 2-6pm.';
+    END IF;
     OPEN curs;
     LOOP
         FETCH curs INTO r;
