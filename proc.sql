@@ -1116,31 +1116,22 @@ AS $$
       FROM (Sessions S INNER JOIN Rooms R ON (S.rid = R.rid)) O
       WHERE course_id = course AND launch_date = launch;
 
-    IF NOT EXISTS(SELECT * FROM Offerings WHERE course_id = course AND launch_date = launch) THEN
+    IF NOT EXISTS(SELECT 1 FROM Offerings WHERE course_id = course AND launch_date = launch) THEN
       RAISE EXCEPTION 'course offering does not exist, unable to add session';
 
     ELSIF CURRENT_DATE > deadline THEN
       RAISE EXCEPTION 'the course offering’s registration deadline has passed, unable to add session';
 
-    ELSIF new_capacity < target_number THEN -- if the new seat capacity < target_number_registrations
-      RAISE EXCEPTION 'seating capacity less than target number registrations, unable to add session';
-
     -- insert to session
     ELSE
       SELECT duration INTO session_duration FROM Courses WHERE course_id = course;
-
       INSERT INTO Sessions
         VALUES (course, launch, new_sid, new_start_date, start, (start+session_duration), instructor, room);
       -- update offering since start date or send date may change after new swssion being inserted
       UPDATE Offerings
-      -- check coalesce date
-        SET start_date = LEAST(start_date, new_start_date), end_date = GREATEST(end_date, new_start_date)
+      -- check coalesce date and seating capacity
+        SET start_date = LEAST(start_date, new_start_date), end_date = GREATEST(end_date, new_start_date), seating_capacity = new_capacity
         WHERE course_id = course AND launch_date = launch;
-      -- update the seating_capacity
-      UPDATE Offerings
-        SET seating_capacity = new_capacity
-        WHERE course_id = course AND launch_date = launch;
-
     END IF;
   END;
 $$ LANGUAGE  plpgsql;
