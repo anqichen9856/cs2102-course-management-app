@@ -450,10 +450,13 @@ CREATE OR REPLACE FUNCTION ifOverlap(session_rid INTEGER, session_date DATE, new
                 WHERE S.date = session_date
                 AND S.rid = session_rid
                 AND (
-                    (S.start_time >= new_start_time AND S.start_time < new_end_time) OR
-                    (S.end_time > new_start_time AND S.end_time <= new_end_time) OR
-                    (new_start_time >= S.start_time AND S.start_time < new_end_time) OR
-                    (new_end_time > S.start_time AND new_end_time <= S.end_time)
+                  (new_start_time <= S.start_time AND new_end_time > S.start_time) OR
+                  (new_start_time < S.end_time AND new_end_time >= S.end_time) OR 
+                  (new_start_time >= S.start_time AND new_end_time <= S.end_time)
+                    --(S.start_time >= new_start_time AND S.start_time < new_end_time) OR
+                    --(S.end_time > new_start_time AND S.end_time <= new_end_time) OR
+                    --(new_start_time >= S.start_time AND S.start_time < new_end_time) OR
+                    --(new_end_time > S.start_time AND new_end_time <= S.end_time)
                 )
             );
 $$ LANGUAGE sql;
@@ -469,7 +472,7 @@ AS $$
     SELECT duration INTO session_duration FROM Courses WHERE course_id = NEW.course_id;
     -- check that the no session can overlap
     IF ifOverlap(NEW.rid, NEW.date, NEW.start_time, NEW.end_time) THEN
-      RAISE EXCEPTION 'the new session is overlap with other session';
+      RAISE EXCEPTION 'the new session is overlap with other session, Room %, date %, start %, end %', NEW.rid, NEW.date, NEW.start_time, NEW.end_time;
 
     -- check if the room is valiable for the session
     -- IF NOT EXISTS(SELECT * FROM find_rooms(NEW.date, NEW.start_time, session_duration) WHERE rid = NEW.rid) THEN
@@ -488,8 +491,7 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS insert_session_trigger ON Sessions;
 
 CREATE CONSTRAINT TRIGGER insert_session_trigger
-AFTER INSERT ON Sessions
-DEFERRABLE INITIALLY DEFERRED
+BEFORE INSERT ON Sessions
 FOR EACH ROW EXECUTE FUNCTION insert_session_func();
 
 
