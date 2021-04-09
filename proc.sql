@@ -1628,23 +1628,17 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION highest_total_fees(year INTEGER, M_eid INTEGER)
 RETURNS TABLE(title TEXT) AS $$
 -- title of the course offering that has the highest total net registration fees among all the course offering
-  (SELECT B.title
-  FROM (
-    (SELECT course_id, COALESCE(MAX(f), 0)
-    FROM (
-      SELECT course_id, fee_one_offering(course_id, launch_date, fees) AS f
-      FROM Offerings
-      -- the offering managed by this manager that ended this year
-      WHERE course_id
-          IN (SELECT course_id FROM Courses WHERE course_area IN (SELECT name FROM Course_areas WHERE eid = M_eid))
-        AND EXTRACT(YEAR FROM end_date) = year
-      ) C
-	 GROUP BY course_id
-    ) A
-    INNER JOIN
-    (SELECT course_id, title FROM Courses) B
-    ON (A.course_id = B.course_id)
- ));
+-- title of the course offering that has the highest total net registration fees among all the course offering
+  SELECT R.title
+FROM
+  ((SELECT course_id FROM Offerings WHERE course_id IN (SELECT course_id FROM Courses WHERE course_area IN (SELECT name FROM Course_areas WHERE eid = M_eid))
+    AND EXTRACT(YEAR FROM end_date) = year AND fee_one_offering(course_id, launch_date, fees) = (SELECT max(fee_one_offering(course_id, launch_date, fees))
+  FROM Offerings
+  WHERE course_id IN (SELECT course_id FROM Courses WHERE course_area IN (SELECT name FROM Course_areas WHERE eid = M_eid))
+    AND EXTRACT(YEAR FROM end_date) = year)) A -- select offering(s) that have highest total net registration fees
+  INNER JOIN
+  (SELECT course_id, title FROM Courses) B
+ON (A.course_id = B.course_id)) R	
 $$ LANGUAGE SQL;
 
 
