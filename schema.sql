@@ -130,7 +130,7 @@ CREATE TABLE Sessions (
   	FOREIGN KEY (course_id, launch_date) REFERENCES Offerings ON DELETE CASCADE
 	  	DEFERRABLE INITIALLY DEFERRED,
 	CHECK ((EXTRACT(DOW FROM date)) IN (1,2,3,4,5)),
-	CHECK ((start_time >= 9 and end_time <= 12) or (start_time >= 14 and end_time <= 18)),
+	CHECK ((start_time >= 9 AND end_time <= 12) OR (start_time >= 14 AND end_time <= 18)),
 	CHECK (start_time < end_time),
 	CHECK (launch_date <= date - INTERVAL '10 days')
 );
