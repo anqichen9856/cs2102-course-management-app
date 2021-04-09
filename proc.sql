@@ -471,8 +471,10 @@ BEGIN
           SELECT R.seating_capacity INTO curr_capacity FROM Rooms R WHERE R.rid = curr_rid;
           seating_capacity := seating_capacity + curr_capacity;
     END LOOP;
-	INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target, seating_capacity, fees, eid);
-
+    IF seating_capacity < target THEN 
+      RAISE EXCEPTION 'seating capacity should be at least equal to target nunber of registration.';
+    END IF;
+	  INSERT INTO Offerings VALUES (cid, launch_date, start_date, end_date, registration_deadline, target, seating_capacity, fees, eid);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -976,13 +978,13 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
           if_register := 0;
         END IF;
       END IF;
-
+    
       -- if regester directly
       IF if_register = 1 THEN
         SELECT sid INTO session FROM Registers WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust)) AND date = latest_register;
         SELECT fees INTO fee FROM Offerings WHERE course_id = course AND launch_date = launch;
         SELECT date INTO registered_session_start FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session;
-        -- check if the session is alr passed.
+        -- check if the session is alr passed. 
         IF registered_session_start <= CURRENT_DATE THEN
           RAISE EXCEPTION 'Session started';
         END IF;
@@ -998,7 +1000,7 @@ CREATE OR REPLACE PROCEDURE cancel_registration (cust INTEGER, course INTEGER, l
       ELSE
         SELECT sid INTO session FROM Redeems WHERE course_id = course AND launch_date = launch AND card_number IN (SELECT cards FROM find_cards(cust)) AND date = latest_redeem;
         SELECT date INTO registered_session_start FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session;
-        -- check if the session is alr passed.
+        -- check if the session is alr passed. 
         IF registered_session_start <= CURRENT_DATE THEN
           RAISE EXCEPTION 'Session started';
         END IF;
@@ -1046,12 +1048,10 @@ AS $$
     session_start INTEGER;
     session_end INTEGER;
     offering_capacity INTEGER;
-    target INTEGER;
-
   BEGIN
   	SELECT date, start_time, end_time, rid INTO session_date, session_start, session_end, old_room FROM Sessions WHERE course_id = course AND sid = session_id AND launch_date = launch;
     -- the seat capacity offering before the update
-    SELECT seating_capacity, target_number_registrations INTO offering_capacity, target FROM Offerings WHERE course_id = course AND launch_date = launch;
+    SELECT seating_capacity INTO offering_capacity FROM Offerings WHERE course_id = course AND launch_date = launch;
 
     IF (new_rid NOT IN (SELECT rid FROM find_rooms(session_date, session_start, session_start - session_end))) THEN
       RAISE EXCEPTION 'the room is not available';
@@ -1066,12 +1066,7 @@ AS $$
 
       -- check if the number of student in the session exceeds the room capacity
       IF (students > seat) THEN
-        RAISE EXCEPTION 'new room cannot hold the number of registered custoemrs';
-
-      -- if the new room will make the seating capacity < target number of registration
-      ELSIF (offering_capacity - seat_old + seat) < target THEN
-        RAISE EXCEPTION 'seating capacity of offering less than target number of registrations';
-
+        RAISE EXCEPTION 'new room cannot hold the number of registered customers';
       ELSE
         UPDATE Sessions
           SET rid = new_rid
@@ -1089,6 +1084,9 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE PROCEDURE remove_session (course INTEGER, launch DATE, session_id INTEGER)
 AS $$
   BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session_id) THEN
+      RAISE EXCEPTION 'Session not exists';
+    END IF;
     DELETE FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session_id;
   END;
 $$ LANGUAGE plpgsql;
@@ -1499,7 +1497,6 @@ DECLARE
   count_registers INTEGER;
   fees_redeem NUMERIC;
   fees_offering NUMERIC;
-  package INTEGER;
 
 BEGIN
   --(excluding any refunded fees due to cancellations)
@@ -1542,7 +1539,7 @@ CREATE OR REPLACE FUNCTION total_fee(M_eid INTEGER)
   BEGIN
     total_fee := 0;
     OPEN curs_o;
-
+    -- ????
     LOOP
       FETCH curs_o INTO r_o;
       EXIT WHEN NOT FOUND;
@@ -1653,6 +1650,7 @@ DROP TRIGGER IF EXISTS register_if_valid_trigger ON Registers;
 DROP TRIGGER IF EXISTS update_buy_cancel_trigger ON Cancels;
 DROP TRIGGER IF EXISTS insert_session_trigger ON Sessions;
 DROP TRIGGER IF EXISTS delete_sessions_trigger ON Sessions;
+DROP TRIGGER IF EXISTS delete_sessions_update_trigger ON Sessions;
 
 
 /* Employee Triggers */
@@ -2072,13 +2070,13 @@ CREATE OR REPLACE FUNCTION update_buy_cancel_func() RETURNS TRIGGER AS $$
     IF NEW.package_credit = 1 THEN
 
       IF EXISTS (
-        SELECT 1 FROM Sessions S
-        WHERE NEW.date <= S.date - 7
+        SELECT 1 FROM Sessions S 
+        WHERE NEW.date <= S.date - 7 
         AND S.course_id = NEW.course_id AND S.launch_date = NEW.launch_date AND S.sid = NEW.sid
       ) THEN
-        SELECT B.package_id, B.card_number, B.date INTO pid, cardNumber, buyDate FROM Buys B
-        WHERE EXISTS (SELECT 1 FROM Owns O WHERE NEW.cust_id = O.cust_id AND B.card_number = O.card_number)
-        ORDER BY B.date DESC LIMIT 1;
+        SELECT B.package_id, B.card_number, B.date INTO pid, cardNumber, buyDate FROM Buys B 
+        WHERE EXISTS (SELECT 1 FROM Owns O WHERE NEW.cust_id = O.cust_id AND B.card_number = O.card_number) 
+        ORDER BY B.date DESC LIMIT 1; 
 
         UPDATE Buys SET num_remaining_redemptions = num_remaining_redemptions + 1
         WHERE package_id = pid AND card_number = cardNumber AND date = buyDate;
@@ -2144,43 +2142,53 @@ CREATE TRIGGER insert_session_trigger
 BEFORE INSERT ON Sessions
 FOR EACH ROW EXECUTE FUNCTION insert_session_func();
 
-
-
 CREATE OR REPLACE FUNCTION delete_sessions_func() RETURNS TRIGGER
 AS $$
   DECLARE
     students INTEGER;
-    offering_start DATE;
-    offering_end DATE;
     room_id INTEGER;
     room_deleted_session INTEGER;
-
   BEGIN
-    students := student_in_session(OLD.course_id, OLD.launch_date, OLD.sid); --
+    students := student_in_session(OLD.course_id, OLD.launch_date, OLD.sid); 
     -- check if there are someone in the session
     -- registers_course_id_launch_date_sid_fkey & redeems_course_id_launch_date_sid_fkey already checked ???
     IF (students > 0) THEN
       RAISE EXCEPTION 'There are students in the session, cannot delete session';
-    ELSIf OLD.date < CURRENT_DATE THEN
-      RAISE EXCEPTION 'The course session has started';
-    ELSE
-      SELECT COALESCE(MIN(date), 0) INTO offering_start FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
-      SELECT COALESCE(MAX(date), 0) INTO offering_end FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
-      SELECT rid INTO room_id FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date AND sid = OLD.sid;
-      SELECT seating_capacity INTO room_deleted_session FROM Rooms WHERE rid = room_id;
-      UPDATE Offerings
-        SET start_date = offering_start, end_date = offering_end
-        WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
-
-      -- update seat capacity
-      UPDATE Offerings
-        SET seating_capacity =  seating_capacity - room_deleted_session
-        WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
-      RETURN NULL;
     END IF;
+    IF OLD.date < CURRENT_DATE THEN
+      RAISE EXCEPTION 'The course session has started';
+    END IF;
+    SELECT rid INTO room_id FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date AND sid = OLD.sid;
+    SELECT seating_capacity INTO room_deleted_session FROM Rooms WHERE rid = room_id;
+    UPDATE Offerings
+      SET seating_capacity =  seating_capacity - room_deleted_session
+      WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+    RETURN OLD;
   END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER delete_sessions_trigger
 BEFORE DELETE ON Sessions
 FOR EACH ROW EXECUTE FUNCTION delete_sessions_func();
+
+CREATE OR REPLACE FUNCTION delete_sessions_update_func() RETURNS TRIGGER
+AS $$
+  DECLARE
+    offering_start DATE;
+    offering_end DATE;
+
+  BEGIN
+    -- check if there are someone in the session
+    -- registers_course_id_launch_date_sid_fkey & redeems_course_id_launch_date_sid_fkey already checked ???
+    SELECT MIN(date) INTO offering_start FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+    SELECT MAX(date) INTO offering_end FROM Sessions WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+    UPDATE Offerings
+      SET start_date = offering_start, end_date = offering_end
+      WHERE course_id = OLD.course_id AND launch_date = OLD.launch_date;
+    RETURN OLD;
+  END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER delete_sessions_update_trigger
+AFTER DELETE ON Sessions
+FOR EACH ROW EXECUTE FUNCTION delete_sessions_update_func();
