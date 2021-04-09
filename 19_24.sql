@@ -561,7 +561,7 @@ RETURNS TABLE(title TEXT) AS $$
   -- highest total net registration fees among all the course offerings
   (SELECT B.title
   FROM (
-    (SELECT course_id, MAX(f)
+    (SELECT course_id, COALESCE(MAX(f))
     FROM (
       SELECT course_id, fee_one_offering(course_id, launch_date, fees) AS f
       FROM Offerings
