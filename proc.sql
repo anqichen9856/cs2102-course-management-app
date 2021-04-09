@@ -342,6 +342,12 @@ DECLARE
     end_hour NUMERIC;
 BEGIN
     end_hour := start_hour + duration;
+    IF (EXTRACT(DOW FROM session_date)) NOT IN (1,2,3,4,5) THEN
+        RAISE EXCEPTION 'Session date % is not a weekday.', session_date;
+    END IF;
+    IF NOT ((start_hour >= 9 AND end_hour <= 12) OR (start_hour >= 14 AND end_hour <= 18)) THEN
+        RAISE EXCEPTION 'Sessions should be conducted at 9-12am or 2-6pm.';
+    END IF;
     OPEN curs;
     LOOP
         FETCH curs INTO r;
