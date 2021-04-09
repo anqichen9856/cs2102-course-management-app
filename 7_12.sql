@@ -224,13 +224,18 @@ $$ LANGUAGE plpgsql;
 
 -- 11 DONE
 -- checked in schema: (1) unique entry; (2) start_date <= end date; (3) price >= 0.
--- checked in procedure: curr_date between start and end date
+-- checked in procedure: start date >= curr_date
 CREATE OR REPLACE PROCEDURE add_course_package(name TEXT, num_free_registrations INT, start_date DATE, end_date DATE, price NUMERIC)
 AS $$
 DECLARE
     new_pkg_id INT;
+
 BEGIN
     SELECT COALESCE(MAX(package_id), 0) + 1 INTO new_pkg_id FROM Course_packages;
+    IF CURRENT_DATE > start_date
+    THEN RAISE EXCEPTION 'start date is before current date.';
+    END IF;
+
     INSERT INTO Course_packages VALUES (new_pkg_id, num_free_registrations, start_date, end_date, name, price);
 END;
 $$ LANGUAGE plpgsql;
