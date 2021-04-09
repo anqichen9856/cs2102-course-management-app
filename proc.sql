@@ -7,8 +7,13 @@ DROP FUNCTION IF EXISTS find_rooms(DATE,NUMERIC,NUMERIC);
 DROP FUNCTION IF EXISTS get_available_rooms(DATE,DATE);
 DROP FUNCTION IF EXISTS get_available_course_packages();
 DROP FUNCTION IF EXISTS top_packages, popular_courses;
-DROP PROCEDURE IF EXISTS buy_course_package, register_session;
-DROP FUNCTION IF EXISTS get_my_course_package, get_available_course_offerings, get_available_course_sessions, get_my_registrations, view_summary_report;
+DROP PROCEDURE IF EXISTS buy_course_package (INT, INT);
+DROP PROCEDURE IF EXISTS register_session (INT, INT, DATE, INT, INT); 
+DROP FUNCTION IF EXISTS get_my_course_package (INT);
+DROP FUNCTION IF EXISTS get_available_course_offerings ();
+DROP FUNCTION IF EXISTS get_available_course_sessions (INT, DATE);
+DROP FUNCTION IF EXISTS get_my_registrations (INT);
+DROP FUNCTION IF EXISTS view_summary_report (INT);
 DROP PROCEDURE IF EXISTS update_course_session, cancel_registration, update_instructor, update_room, remove_session, add_session;
 DROP FUNCTION IF EXISTS find_cards, in_registers, student_in_session, check_cancel, fee_one_offering, total_fee, highest_total_fees, view_manager_report;
 
