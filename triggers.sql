@@ -433,7 +433,7 @@ DROP TRIGGER IF EXISTS update_buy_cancel_trigger ON Cancels;
 
 CREATE TRIGGER update_buy_cancel_trigger
 AFTER INSERT ON Cancels
-FOR EACH ROW EXECUTE FUNCTION update_buy_func();
+FOR EACH ROW EXECUTE FUNCTION update_buy_cancel_func();
 
 
 
