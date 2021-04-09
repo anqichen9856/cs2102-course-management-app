@@ -1598,7 +1598,7 @@ BEGIN
   );
   -- total fees for one offering
   fees_offering := fees_register + fees_redeem;
-  RETURN COALESCE(fees_offering);
+  RETURN COALESCE(fees_offering,0);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1625,7 +1625,7 @@ CREATE OR REPLACE FUNCTION total_fee(M_eid INTEGER)
       total_fee := total_fee + fees_offering;
     END LOOP;
     CLOSE curs_o;
-    RETURN COALESCE(total_fee);
+    RETURN COALESCE(total_fee,0);
   END;
 $$ LANGUAGE plpgsql;
 
