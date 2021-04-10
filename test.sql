@@ -72,6 +72,61 @@ select * from courses where course_id = 10
 -- 15+4=19 over time
 SELECT * FROM find_instructors (10, '2021-03-31', 15);
 
+-- 7
+-- 2 instructors both free whole day
+SELECT * FROM get_available_instructors(10, '2021-05-01', '2021-05-09');
+-- 1 part time instructor exceeding 30h of teaching & the other have lessons
+SELECT * FROM get_available_instructors(10, '2021-04-25', '2021-04-28');
+-- not available before and after 1h
+SELECT * FROM get_available_instructors(5, '2021-02-03', '2021-02-03');
+-- instructor departed
+SELECT * FROM get_available_instructors(5, '2021-04-06', '2021-04-06');
+
+-- 8
+SELECT * FROM Sessions;
+-- no lesson on that day, all rooms free
+SELECT * FROM find_rooms('2021-04-14', 9, 2);
+-- several lessons on that day
+SELECT * FROM find_rooms('2021-04-09', 14, 3);
+SELECT * FROM Sessions WHERE DATE = '2021-04-09';
+-- date not valid
+SELECT * FROM find_rooms('2021-04-10', 14, 3);
+-- time not valid
+SELECT * FROM find_rooms('2021-04-9', 17, 2);
+
+-- 9
+-- 04-08 all available, 04-09 3,16,20,21 not avaialble 
+SELECT * FROM get_available_rooms('2021-04-08', '2021-04-09');
+-- skip weekends
+SELECT * FROM get_available_rooms('2021-04-09', '2021-04-10');
+
+-- 10
+-- successul insertion
+CALL add_course_offering(10, 10, DATE '2021-06-01', '2021-06-20', 2, 10, '{{"2021-07-01", "14", "21"}, {"2021-07-02", "14", "21"}}');
+SELECT * FROM Offerings;
+SELECT * FROM Sessions WHERE cid = 10 AND launch_date = '2021-06-01';
+-- check by schema: registration ddl
+CALL add_course_offering(10, 10, DATE '2021-06-02', '2021-07-01', 2, 10, '{{"2021-07-05", "14", "21"}, {"2021-07-06", "14", "21"}}');
+-- sessions over weekends
+CALL add_course_offering(10, 10, DATE '2021-06-02', '2021-07-01', 2, 10, '{{"2021-07-04", "14", "21"}, {"2021-07-06", "14", "21"}}');
+-- check by routine: seating capacity 
+CALL add_course_offering(10, 10, DATE '2021-06-02', '2021-06-20', 3, 10, '{{"2021-07-05", "14", "21"}, {"2021-07-06", "14", "21"}}');
+-- check by trigger: room, instructor availablility, overlap of sessions
+-- to be demoed by add_session
+
+-- 11
+CALL add_course_package('Cheapest package', 1, '2021-05-01', '2021-05-03', 10);
+SELECT * FROM Course_packages;
+-- unique entry
+CALL add_course_package('Cheapest package', 1, '2021-05-01', '2021-05-03', 10);
+-- start date > curr date
+CALL add_course_package('Another Cheapest package', 1, '2021-01-04', '2021-05-03', 10);
+
+--12
+-- performed after 11. the newly added package is not available yet.
+SELECT * FROM Course_packages;
+SELECT * FROM get_available_course_packages();
+
 -- 13
 -- Case 1: unable to buy package 2 because customer 1 has an active package
 CALL buy_course_package(1, 2);
@@ -102,10 +157,10 @@ SELECT * FROM get_available_course_sessions(7, '2021-03-30');
 
 -- 17
 -- Case 1: register SUCCESS
-CALL register_session(1, 7, '2021-03-30', 1, 0); 
+CALL register_session(1, 7, '2021-03-30', 1, 0);
 SELECT * FROM Registers;
 -- Case 2: redeem SUCCESS
-CALL register_session(3, 7, '2021-03-30', 1, 1); 
+CALL register_session(3, 7, '2021-03-30', 1, 1);
 SELECT * FROM Redeems;
 
 -- 18
@@ -113,33 +168,39 @@ SELECT * FROM get_my_registrations(1);
 
 
 -- test 19
--- CALL update_course_session (12, 10, '2021-03-01', 9);
--- CALL update_course_session (12, 10, '2021-03-01', 8);
+-- successful:
+CALL update_course_session (12, 10, '2021-03-01', 9);
+CALL update_course_session (12, 10, '2021-03-01', 8);
 
 -- test 20
--- CALL cancel_registration (12, 10, '2021-03-01');
+
+CALL cancel_registration (12, 10, '2021-03-01');
 
 -- test 21
+-- successful:
 -- need some instructor teaches same area
 -- CALL update_instructor (10, '2021-03-01', 8, new_eid INTEGER);
 
 -- test 22
--- CALL update_room (10, '2021-03-01', 8, 16);
--- CALL update_room (10, '2021-03-01', 10, 20);
--- CALL update_room (10, '2021-03-01', 10, 19);
+-- successful:
+CALL update_room (10, '2021-03-01', 8, 16);
+CALL update_room (10, '2021-03-01', 10, 20);
+CALL update_room (10, '2021-03-01', 10, 19);
 
 
 -- test 23
--- CALL remove_session (10, '2021-03-01', 9);
--- CALL remove_session (10, '2021-03-01', 7);
--- CALL remove_session (10, '2021-03-01', 6);
+-- successful:
+CALL remove_session (10, '2021-03-01', 9);
+CALL remove_session (10, '2021-03-01', 7);
+CALL remove_session (10, '2021-03-01', 6);
 
 
 -- test 24
--- CALL add_session (11, '2021-05-01', 2, '2021-09-06', 9.0, 3, 1);
--- CALL add_session (11, '2021-05-01', 3, '2021-09-07', 9.0, 3, 1);
--- CALL add_session (11, '2021-05-01', 4, '2021-09-08', 9.0, 3, 1);
--- CALL add_session (11, '2021-05-01', 5, '2021-09-09', 9.0, 3, 1);
+-- successful:
+CALL add_session (11, '2021-05-01', 2, '2021-09-06', 9.0, 3, 1);
+CALL add_session (11, '2021-05-01', 3, '2021-09-07', 9.0, 3, 1);
+CALL add_session (11, '2021-05-01', 4, '2021-09-08', 9.0, 3, 1);
+CALL add_session (11, '2021-05-01', 5, '2021-09-09', 9.0, 3, 1);
 
 -- 25
 delete from pay_slips where EXTRACT(MONTH FROM payment_date) = 4;
@@ -149,14 +210,14 @@ select * from pay_slips
 -- dio brando not full: 6/30*470=94
 select * from employees where eid = 2
 select * from employees where eid = 21
--- 28 hours for eid 15
+-- eid 15 worked 28 hours
 select sum(end_time - start_time) from sessions where eid=15 and EXTRACT(MONTH FROM date) = 4
+
 
 -- 26
 SELECT * FROM promote_courses();
 select cust_id from customers except SELECT cust_id FROM promote_courses() order by cust_id
--- active customers
--- 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 21
+-- active customers: 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 21
 WITH Reg AS (
     (select cust_id, date from Customers NATURAL JOIN Owns NATURAL JOIN Registers)
     UNION
@@ -167,13 +228,35 @@ select distinct cust_id from Reg where date >= '2020-10-01' order by cust_id
 -- open offerings
 select * from offerings where registration_deadline >= CURRENT_DATE
 
--- 15 Cho Chang has some interest area: register before 6 months 
--- 6 months: 2020-10 to 2021-04
+-- Cho Chang (15) has some interest area: register before 6 months 
+-- prev 6 months: 2020-10 to 2021-04
 select cust_id, course_area, date from Customers NATURAL JOIN Owns NATURAL JOIN Registers NATURAL JOIN Courses where cust_id = 15
 
 
--- 29 
+-- 27
+SELECT * FROM Course_packages;
+SELECT * FROM top_packages(1);
+SELECT * FROM top_packages(2);
+SELECT * FROM top_packages(3);
+SELECT * FROM top_packages(4);
+SELECT * FROM top_packages(5);
+
+-- 28
+SELECT * FROM popular_courses();
+
+-- 29
 SELECT * FROM view_summary_report(20);
+
+-- 30
+SELECT * FROM view_manager_report();
+
+
+
+
+
+
+
+
 
 
 
