@@ -1,4 +1,9 @@
 -- Test cases for routines
+
+-- test 7 
+CALL 
+
+
 -- test 19
 -- CALL update_course_session (12, 10, '2021-03-01', 9);
 -- CALL update_course_session (12, 10, '2021-03-01', 8);
