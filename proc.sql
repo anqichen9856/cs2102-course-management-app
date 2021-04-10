@@ -2080,7 +2080,7 @@ FOR EACH ROW EXECUTE FUNCTION update_buy_cancel_func();
 
 -- this function returns a boolean
 -- TRUE if there is overlap in the session; FALSE if there is no overlap
-CREATE OR REPLACE FUNCTION check_overlap(session_rid INTEGER, session_date DATE, new_start_time NUMERIC(4,2), new_end_time NUMERIC(4,2))
+CREATE OR REPLACE FUNCTION check_overlap_room(session_rid INTEGER, session_date DATE, new_start_time NUMERIC(4,2), new_end_time NUMERIC(4,2))
   RETURNS BOOLEAN AS $$
   SELECT EXISTS (
                 SELECT * FROM Sessions S
@@ -2119,7 +2119,7 @@ AS $$
   BEGIN
     SELECT duration INTO session_duration FROM Courses WHERE course_id = NEW.course_id;
     -- check no session using the same room can overlap 
-    IF check_overlap(NEW.rid, NEW.date, NEW.start_time, NEW.end_time) THEN
+    IF check_overlap_room(NEW.rid, NEW.date, NEW.start_time, NEW.end_time) THEN
       RAISE EXCEPTION 'The new session from % to % on % at room % overlaps with other session', NEW.start_time, NEW.end_time, NEW.date, NEW.rid;
 
     -- check no sessions of the same offering can overlap
