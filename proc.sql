@@ -441,6 +441,9 @@ BEGIN
     IF cid NOT IN (SELECT course_id FROM Courses) THEN
       RAISE EXCEPTION 'Course does not exist.';
     END IF;
+    IF session_info = '{}' THEN
+      RAISE EXCEPTION 'Session info cannot be empty.';
+    END IF;
     FOREACH m SLICE 1 IN ARRAY session_info
     LOOP
         date := m[1]::DATE;
