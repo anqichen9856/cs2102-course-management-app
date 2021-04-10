@@ -1030,6 +1030,9 @@ AS $$
     session_end INTEGER;
     offering_capacity INTEGER;
   BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Sessions WHERE course_id = course AND launch_date = launch AND sid = session_id) THEN
+      RAISE EXCEPTION 'Session information not valid.';
+    END IF;
   	SELECT date, start_time, end_time, rid INTO session_date, session_start, session_end, old_room FROM Sessions WHERE course_id = course AND sid = session_id AND launch_date = launch;
     -- the seat capacity offering before the update
     SELECT seating_capacity INTO offering_capacity FROM Offerings WHERE course_id = course AND launch_date = launch;

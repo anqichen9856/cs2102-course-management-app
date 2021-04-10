@@ -204,22 +204,37 @@ CALL cancel_registration (11, 10, '2021-03-01');
 -- CALL cancel_registration (2, 10, '2021-03-01');
 -- Cancellation will be proceed, but the number of remaining redemptions in your package cannot be added back
 -- CALL cancel_registration (5, 10, '2021-03-01');
-
+-- Session started
+-- CALL cancel_registration (1, 5, '2021-03-10');
 
 -- test 21
 CALL update_instructor (11, '2021-05-01', 1, 21);
 CALL update_instructor (11, '2021-05-01', 2, 21);
+-- Session information not valid.
+-- CALL update_instructor (111, '2021-05-01', 1 , 21);
+-- new_eid is not valid
+-- CALL update_instructor (10, '2021-03-01', 8 , 211);
+
 
 -- test 22
 CALL update_room (10, '2021-03-01', 8, 16);
 CALL update_room (10, '2021-03-01', 10, 20);
 CALL update_room (10, '2021-03-01', 10, 19);
+-- the room is not available
+-- CALL update_room (10, '2021-03-01', 10, 190);
+-- Session information not valid.
+-- CALL update_room (100, '2021-03-01', 10, 20);
+-- session started
+-- CALL update_room (10, '2021-03-01', 1, 20);
 
 
 -- test 23
 CALL remove_session (10, '2021-03-01', 9);
 CALL remove_session (10, '2021-03-01', 7);
 CALL remove_session (10, '2021-03-01', 6);
+-- Session not exists
+-- CALL remove_session (10, '2021-03-01', 6);
+
 
 
 -- test 24
@@ -229,6 +244,9 @@ CALL add_session (11, '2021-05-01', 4, '2021-09-08', 9.0, 3, 1);
 CALL add_session (11, '2021-05-01', 5, '2021-09-09', 9.0, 3, 1);
 -- session overlap:
 -- CALL add_session (3, '2021-04-30', 2, '2021-06-22', 15, 21, 1);
+-- course offering does not exist, unable to add session
+-- CALL add_session (110, '2021-05-01', 5, '2021-09-09', 9.0, 3, 1);
+
 
 
 -- 25
