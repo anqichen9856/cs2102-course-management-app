@@ -65,6 +65,16 @@ SELECT * FROM get_available_course_sessions(1, '2020-09-01');
 SELECT * FROM get_available_course_sessions(7, '2021-03-30');
 
 -- 17
+-- Case 1: register SUCCESS
+CALL register_session(1, 7, '2021-03-30', 1, 0); 
+SELECT * FROM Registers;
+-- Case 2: redeem SUCCESS
+CALL register_session(3, 7, '2021-03-30', 1, 1); 
+SELECT * FROM Redeems;
+
+-- 18
+SELECT * FROM get_my_registrations(1);
+
 
 -- test 19
 -- CALL update_course_session (12, 10, '2021-03-01', 9);
@@ -94,6 +104,10 @@ SELECT * FROM get_available_course_sessions(7, '2021-03-30');
 -- CALL add_session (11, '2021-05-01', 3, '2021-09-07', 9.0, 3, 1);
 -- CALL add_session (11, '2021-05-01', 4, '2021-09-08', 9.0, 3, 1);
 -- CALL add_session (11, '2021-05-01', 5, '2021-09-09', 9.0, 3, 1);
+
+
+-- 29 
+SELECT * FROM view_summary_report(20);
 
 
 
