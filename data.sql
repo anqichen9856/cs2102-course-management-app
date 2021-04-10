@@ -19,6 +19,7 @@ INSERT INTO Employees VALUES (17, 'Eve Brown', 'eve@gmail.com', '(+65) 90175689'
 INSERT INTO Employees VALUES (18, 'Adam Yuan', 'ay@gmail.com', '(+65) 10102237', 'rvrc', '2018-04-01', NULL);
 INSERT INTO Employees VALUES (19, 'Xavior Chu', 'xc@gmail.com', '(+65) 10102234', 'pgp', '2018-04-07', NULL);
 INSERT INTO Employees VALUES (20, 'Peter Pan', 'peter@gmail.com', '(+65) 10102233', 'tembusu', '2018-02-03', '2021-04-09');
+INSERT INTO Employees VALUES (21, 'Zoe Wang', 'zoe@gmail.com', '(+65) 10103399', 'pgp', '2018-02-03', NULL);
 
 --Full_time_Emp
 INSERT INTO Full_time_Emp VALUES (1, 10000);
@@ -34,6 +35,7 @@ INSERT INTO Full_time_Emp VALUES (10, 1987);
 INSERT INTO Full_time_Emp VALUES (17, 800);
 INSERT INTO Full_time_Emp VALUES (18, 1250);
 INSERT INTO Full_time_Emp VALUES (19, 1790);
+INSERT INTO Full_time_Emp VALUES (21, 1500);
 
 --Part_time_Emp
 INSERT INTO Part_time_Emp VALUES (11, 2000);
@@ -58,6 +60,7 @@ INSERT INTO Instructors VALUES (15);
 INSERT INTO Instructors VALUES (16);
 INSERT INTO Instructors VALUES (17);
 INSERT INTO Instructors VALUES (20);
+INSERT INTO Instructors VALUES (21);
 
 --Full_time_instructors
 INSERT INTO Full_time_instructors VALUES (1);
@@ -66,6 +69,7 @@ INSERT INTO Full_time_instructors VALUES (3);
 INSERT INTO Full_time_instructors VALUES (4);
 INSERT INTO Full_time_instructors VALUES (5);
 INSERT INTO Full_time_instructors VALUES (17);
+INSERT INTO Full_time_instructors VALUES (21);
 
 --Part_time_instructors
 INSERT INTO Part_time_instructors VALUES (11);
@@ -139,6 +143,7 @@ INSERT INTO Specializes VALUES (15, 'Software Engineering');
 INSERT INTO Specializes VALUES (16, 'Computer Security');
 INSERT INTO Specializes VALUES (17, 'Software Engineering');
 INSERT INTO Specializes VALUES (20, 'Database Systems');
+INSERT INTO Specializes VALUES (21, 'Artificial Intelligence');
 
 --Courses
 INSERT INTO Courses VALUES (1, 'Database Systems', 'The aim of this module is to introduce the fundamental concepts and techniques necessary for the understanding and practice of design and implementation of database applications and of the management of data with relational database management systems.', 'Database Systems', 2.0);

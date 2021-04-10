@@ -2078,7 +2078,6 @@ AFTER INSERT ON Cancels
 FOR EACH ROW EXECUTE FUNCTION update_buy_cancel_func();
 
 
-
 -- this function returns a boolean
 -- TRUE if there is overlap in the session; FALSE if there is no overlap
 CREATE OR REPLACE FUNCTION check_overlap(session_rid INTEGER, session_date DATE, new_start_time NUMERIC(4,2), new_end_time NUMERIC(4,2))
@@ -2096,6 +2095,20 @@ CREATE OR REPLACE FUNCTION check_overlap(session_rid INTEGER, session_date DATE,
             );
 $$ LANGUAGE sql;
 
+DROP FUNCTION IF EXISTS check_overlap_offering (INT, DATE, INT, DATE, NUMERIC, NUMERIC);
+CREATE OR REPLACE FUNCTION check_overlap_offering (course_rid INTEGER, launch_date DATE, sid INT, date DATE, start_time NUMERIC, end_time NUMERIC)
+  RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+                SELECT * FROM Sessions S
+                WHERE S.course_id = course_id AND S.launch_date = launch_date AND S.sid<> sid AND S.date = date
+                AND (
+                    (S.start_time >= start_time AND S.start_time < end_time) OR
+                    (S.end_time > start_time AND S.end_time <= end_time) OR
+                    (start_time >= S.start_time AND start_time < S.end_time) OR
+                    (end_time > S.start_time AND end_time <= S.end_time)
+                )
+            );
+$$ LANGUAGE sql;
 
 -- sessions triggers
 CREATE OR REPLACE FUNCTION insert_session_func() RETURNS TRIGGER
@@ -2105,10 +2118,13 @@ AS $$
 
   BEGIN
     SELECT duration INTO session_duration FROM Courses WHERE course_id = NEW.course_id;
-    -- check that the no session can overlap
-
+    -- check no session using the same room can overlap 
     IF check_overlap(NEW.rid, NEW.date, NEW.start_time, NEW.end_time) THEN
       RAISE EXCEPTION 'The new session from % to % on % at room % overlaps with other session', NEW.start_time, NEW.end_time, NEW.date, NEW.rid;
+
+    -- check no sessions of the same offering can overlap
+    ELSIF check_overlap_offering(NEW.course_id, NEW.launch_date, NEW.sid, NEW.date, NEW.start_time, NEW.end_time) THEN
+      RAISE EXCEPTION 'The new session of % % % from % to % on % overlaps with other sessions of the same offering.', NEW.course_id, NEW.launch_date, NEW.sid, NEW.start_time, NEW.end_time, NEW.date;
 
     -- check if the room is valiable for the session
     -- IF NOT EXISTS(SELECT * FROM find_rooms(NEW.date, NEW.start_time, session_duration) WHERE rid = NEW.rid) THEN
