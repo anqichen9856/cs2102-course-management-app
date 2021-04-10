@@ -176,18 +176,27 @@ CALL add_session (11, '2021-05-01', 3, '2021-09-07', 9.0, 3, 1);
 CALL add_session (11, '2021-05-01', 4, '2021-09-08', 9.0, 3, 1);
 CALL add_session (11, '2021-05-01', 5, '2021-09-09', 9.0, 3, 1);
 
-
--- 29
-SELECT * FROM view_summary_report(20);
-
-
-
 -- 25
 -- DELETE FROM Pay_slips;
 SELECT * FROM pay_salary();
 
 -- 26
 SELECT * FROM promote_courses();
+
+-- 27
+SELECT * FROM Course_packages;
+SELECT * FROM top_packages(1);
+SELECT * FROM top_packages(2);
+SELECT * FROM top_packages(3);
+SELECT * FROM top_packages(4);
+SELECT * FROM top_packages(5);
+
+
+-- 28
+SELECT * FROM popular_courses();
+
+-- 29
+SELECT * FROM view_summary_report(20);
 
 -- 30
 SELECT * FROM view_manager_report();
