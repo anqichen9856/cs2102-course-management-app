@@ -1,5 +1,41 @@
 -- Test cases for routines
 
+-- 1
+-- Full-time, admin, course area = 0
+CALL add_employee ('Jasmine Ang', '12 Kent Ridge Drive', '(+65) 90176780', 'jasmine@gmail.com', 'monthly', '1200', '2021-03-31', 'administrator', '{}');
+-- Full-time instructor, course area >= 1
+CALL add_employee ('Richard Xiong', '12 Kent Ridge Drive', '(+65) 90176780', 'rx@gmail.com', 'monthly', '3000', '2021-03-31', 'instructor', '{"Computer Science"}');
+-- Part-time instructor, course area >= 1
+CALL add_employee ('Joyce Chua', '12 Kent Ridge Drive', '(+65) 90176780', 'joyce@gmail.com', 'hourly', '50.90', '2021-03-20', 'instructor', '{"Social Sciences", "Law"}');
+-- Full-time manager, course area >= 0
+CALL add_employee ('Wang Qian', '12 Kent Ridge Drive', '(+65) 90176780', 'qiannnnw@gmail.com', 'monthly', '2400', '2021-03-20', 'manager', '{"Law"}');
+-- Full-time manager, course area >= 0
+CALL add_employee ('Bryan Wang', '12 Kent Ridge Drive', '(+65) 90176780', 'bryanwang@gmail.com', 'monthly', '2400', '2021-03-20', 'manager', '{}');
+
+-- 2
+CALL remove_employee (3, '2021-02-29');
+CALL remove_employee (21, CURRENT_DATE);
+
+-- 3
+CALL add_customer ('Chen Anqi', '3 Jurong East Street 32', '(+65) 90174780', 'anqichen@gmail.com', 'A0188533W1234', '2023-02-20', 886);
+
+-- 4
+CALL update_credit_card (11, 'A0188533119W0117', '2026-09-27', 901);
+
+-- 5
+CALL add_course ('Wireless Networking', 'This module aims to provide solid foundation for students in the area of wireless networks and introduces students to the emerging area of cyber-physical-system/Internet-of-Things.',
+'Networking', 2.5);
+
+-- 6
+-- Database Systems: course=1, instructor=1,20
+-- Artificial Intelligence: course=2,3,11, instructor=3,21
+-- Software Engineering: course=10, instructor=15,17
+SELECT * FROM find_instructors (1, '2021-03-31', 9);
+SELECT * FROM find_instructors (2, '2021-03-31', 10);
+SELECT * FROM find_instructors (3, '2021-03-31', 14);
+SELECT * FROM find_instructors (10, '2021-03-31', 15);
+SELECT * FROM find_instructors (11, '2021-03-31', 16);
+
 -- 13
 -- Case 1: unable to buy package 2 because customer 1 has an active package
 CALL buy_course_package(1, 2);
@@ -61,3 +97,9 @@ SELECT * FROM get_available_course_sessions(7, '2021-03-30');
 
 
 
+-- 25
+-- DELETE FROM Pay_slips;
+SELECT * FROM pay_salary();
+
+-- 26
+SELECT * FROM promote_courses();
