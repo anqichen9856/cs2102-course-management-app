@@ -196,6 +196,9 @@ DECLARE
     session_end_time NUMERIC;
     total_hours_that_month NUMERIC;
 BEGIN
+    IF cid NOT IN (SELECT C.course_id FROM Courses C) THEN
+        RAISE EXCEPTION 'Course % does not exist.', cid;
+    END IF;
     SELECT course_area, duration INTO a, d FROM Courses WHERE course_id = cid;
     session_end_time := session_start_time + d;
     IF (EXTRACT(DOW FROM session_date)) NOT IN (1,2,3,4,5) THEN
