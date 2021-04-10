@@ -131,7 +131,7 @@ SELECT * FROM get_available_course_packages();
 -- Case 1: unable to buy package 2 because customer 1 has an active package
 CALL buy_course_package(1, 2);
 -- Case 2: unable to buy package 2 because customer 11 has a partially acitve package
-CALL buy_course_package(11, 2);
+CALL buy_course_package(12, 2);
 -- Case 3: package 1 is not open to sale
 CALL buy_course_package(11, 1);
 -- Case 4: customer 12 successfully buys package 2
