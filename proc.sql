@@ -2095,21 +2095,6 @@ CREATE OR REPLACE FUNCTION check_overlap_room(session_rid INTEGER, session_date 
             );
 $$ LANGUAGE sql;
 
-DROP FUNCTION IF EXISTS check_overlap_offering (INT, DATE, INT, DATE, NUMERIC, NUMERIC);
-CREATE OR REPLACE FUNCTION check_overlap_offering (course_rid INTEGER, launch_date DATE, sid INT, date DATE, start_time NUMERIC, end_time NUMERIC)
-  RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
-                SELECT * FROM Sessions S
-                WHERE S.course_id = course_id AND S.launch_date = launch_date AND S.sid<> sid AND S.date = date
-                AND (
-                    (S.start_time >= start_time AND S.start_time < end_time) OR
-                    (S.end_time > start_time AND S.end_time <= end_time) OR
-                    (start_time >= S.start_time AND start_time < S.end_time) OR
-                    (end_time > S.start_time AND end_time <= S.end_time)
-                )
-            );
-$$ LANGUAGE sql;
-
 -- sessions triggers
 CREATE OR REPLACE FUNCTION insert_session_func() RETURNS TRIGGER
 AS $$
@@ -2123,7 +2108,16 @@ AS $$
       RAISE EXCEPTION 'The new session from % to % on % at room % overlaps with other session', NEW.start_time, NEW.end_time, NEW.date, NEW.rid;
 
     -- check no sessions of the same offering can overlap
-    ELSIF check_overlap_offering(NEW.course_id, NEW.launch_date, NEW.sid, NEW.date, NEW.start_time, NEW.end_time) THEN
+    ELSIF EXISTS (
+      SELECT 1 FROM Sessions S
+        WHERE S.course_id = NEW.course_id AND S.launch_date = NEW.launch_date AND S.sid <> NEW.sid AND S.date = NEW.date
+        AND (
+            (S.start_time >= NEW.start_time AND S.start_time < NEW.end_time) OR
+            (S.end_time > NEW.start_time AND S.end_time <= NEW.end_time) OR
+            (NEW.start_time >= S.start_time AND NEW.start_time < S.end_time) OR
+            (NEW.end_time > S.start_time AND NEW.end_time <= S.end_time)
+        )
+    ) THEN 
       RAISE EXCEPTION 'The new session of % % % from % to % on % overlaps with other sessions of the same offering.', NEW.course_id, NEW.launch_date, NEW.sid, NEW.start_time, NEW.end_time, NEW.date;
 
     -- check if the room is valiable for the session
