@@ -1,5 +1,15 @@
 -- Test cases for routines
 
+/* ad hoc test */
+DO language plpgsql $$
+BEGIN
+  RAISE NOTICE 'hello, world!';
+END
+$$;
+
+/* transient table */
+(VALUES (row), (row))
+
 -- 1
 -- Full-time, admin, course area = 0
 CALL add_employee ('Jasmine Ang', '12 Kent Ridge Drive', '(+65) 90176780', 'jasmine@gmail.com', 'monthly', '1200', '2021-03-31', 'administrator', '{}');

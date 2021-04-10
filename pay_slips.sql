@@ -55,8 +55,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-
-
  --Pay_slips
 CALL pay_salary_for_month ('2020-01-01');
 CALL pay_salary_for_month ('2020-02-01');
