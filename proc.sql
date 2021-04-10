@@ -380,7 +380,7 @@ DECLARE
     r_room RECORD;
     r_day RECORD;
     curs_room CURSOR FOR (SELECT * FROM Rooms ORDER BY rid);
-    curs_day CURSOR FOR (SELECT d.as_of_date::DATE FROM GENERATE_SERIES(start_date - '1 day'::INTERVAL, end_date, '1 day'::INTERVAL) d (as_of_date));
+    curs_day CURSOR FOR (SELECT d.as_of_date::DATE FROM GENERATE_SERIES(start_date - '1 day'::INTERVAL, end_date, '1 day'::INTERVAL) d (as_of_date) WHERE (EXTRACT(DOW FROM d.as_of_date::DATE)) IN (1,2,3,4,5));
 BEGIN
     OPEN curs_room;
 	OPEN curs_day;

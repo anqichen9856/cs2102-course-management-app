@@ -1,6 +1,4 @@
 -- Test cases for routines
-<<<<<<< HEAD
-=======
 
 /* ad hoc test */
 DO language plpgsql $$
@@ -48,7 +46,61 @@ SELECT * FROM find_instructors (3, '2021-03-31', 14);
 SELECT * FROM find_instructors (10, '2021-03-31', 15);
 SELECT * FROM find_instructors (11, '2021-03-31', 16);
 
->>>>>>> 4ee2d30f79fb438e659331ff6d1fa5989dbf8c0f
+-- 7
+-- 2 instructors both free whole day
+SELECT * FROM get_available_instructors(10, '2021-05-01', '2021-05-09');
+-- 1 part time instructor exceeding 30h of teaching & the other have lessons
+SELECT * FROM get_available_instructors(10, '2021-04-25', '2021-04-28');
+-- not available before and after 1h
+SELECT * FROM get_available_instructors(5, '2021-02-03', '2021-02-03');
+-- instructor departed
+SELECT * FROM get_available_instructors(5, '2021-04-06', '2021-04-06');
+
+-- 8
+SELECT * FROM Sessions;
+-- no lesson on that day, all rooms free
+SELECT * FROM find_rooms('2021-04-14', 9, 2);
+-- several lessons on that day
+SELECT * FROM find_rooms('2021-04-09', 14, 3);
+SELECT * FROM Sessions WHERE DATE = '2021-04-09';
+-- date not valid
+SELECT * FROM find_rooms('2021-04-10', 14, 3);
+-- time not valid
+SELECT * FROM find_rooms('2021-04-9', 17, 2);
+
+-- 9
+-- 04-08 all available, 04-09 3,16,20,21 not avaialble 
+SELECT * FROM get_available_rooms('2021-04-08', '2021-04-09');
+-- skip weekends
+SELECT * FROM get_available_rooms('2021-04-09', '2021-04-10');
+
+-- 10
+-- successul insertion
+CALL add_course_offering(10, 10, DATE '2021-06-01', '2021-06-20', 2, 10, '{{"2021-07-01", "14", "21"}, {"2021-07-02", "14", "21"}}');
+SELECT * FROM Offerings;
+SELECT * FROM Sessions WHERE cid = 10 AND launch_date = '2021-06-01';
+-- check by schema: registration ddl
+CALL add_course_offering(10, 10, DATE '2021-06-02', '2021-07-01', 2, 10, '{{"2021-07-05", "14", "21"}, {"2021-07-06", "14", "21"}}');
+-- sessions over weekends
+CALL add_course_offering(10, 10, DATE '2021-06-02', '2021-07-01', 2, 10, '{{"2021-07-04", "14", "21"}, {"2021-07-06", "14", "21"}}');
+-- check by routine: seating capacity 
+CALL add_course_offering(10, 10, DATE '2021-06-02', '2021-06-20', 3, 10, '{{"2021-07-05", "14", "21"}, {"2021-07-06", "14", "21"}}');
+-- check by trigger: room, instructor availablility, overlap of sessions
+-- to be demoed by add_session
+
+-- 11
+CALL add_course_package('Cheapest package', 1, '2021-05-01', '2021-05-03', 10);
+SELECT * FROM Course_packages;
+-- unique entry
+CALL add_course_package('Cheapest package', 1, '2021-05-01', '2021-05-03', 10);
+-- start date > curr date
+CALL add_course_package('Another Cheapest package', 1, '2021-01-04', '2021-05-03', 10);
+
+--12
+-- performed after 11. the newly added package is not available yet.
+SELECT * FROM Course_packages;
+SELECT * FROM get_available_course_packages();
+
 -- 13
 -- Case 1: unable to buy package 2 because customer 1 has an active package
 CALL buy_course_package(1, 2);
