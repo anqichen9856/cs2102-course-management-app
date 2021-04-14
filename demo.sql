@@ -44,13 +44,31 @@ SELECT * FROM find_rooms('2021-04-10', 14, 3);
 
 
 -- test 20
-CALL cancel_registration (12, 10, '2021-03-01');
-case Session started:
-CALL cancel_registration (11, 10, '2021-03-01');
--- the customer not register or redeem any session or canceled
--- CALL cancel_registration (2, 10, '2021-03-01');
--- Cancellation will be proceed, but the number of remaining redemptions in your package cannot be added back
--- CALL cancel_registration (5, 10, '2021-03-01');
--- Session started
--- CALL cancel_registration (1, 5, '2021-03-10');
+-- SELECT * FROM Cancels;
+-- SELECT * FROM Redeems;
+-- SELECT * FROM Registers;
+-- SELECT * FROM Owns;
 
+-- case 1: cancel successfully(customer 12 cancels course 10, from redeem)
+-- SELECT * FROM Buys;
+-- CALL cancel_registration (12, 10, '2021-03-01');
+-- SELECT * FROM Cancels;
+-- SELECT * FROM Buys;
+
+-- CALL register_session (1, 10, '2021-03-01', 10, 0); -- register
+-- SELECT * FROM Registers;
+-- case 2: cancel successfully(customer 12 cancels course 10, register directly)
+-- CALL cancel_registration (1, 10, '2021-03-01');
+-- SELECT * FROM Cancels;
+
+-- case 3: the customer not register or redeem any session or canceled
+-- CALL cancel_registration (1, 10, '2021-03-01');
+
+-- case 4: Session started:
+-- CALL cancel_registration (11, 10, '2021-03-01');
+
+-- pass the deadline
+-- CALL add_session (3, '2021-04-18', 3, '2021-04-20', 14, 3, 3);
+-- CALL register_session (3, 10, '2021-03-01', 5, 0);
+-- SELECT * FROM Registers;
+-- SELECT * FROM Owns;
