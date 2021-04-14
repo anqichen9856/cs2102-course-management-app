@@ -24,17 +24,23 @@ CALL update_credit_card (11, 'A0188533119W0117', '2026-09-27', 901);
 
 
 -- 8
+-- first look at all rooms. in total 22 rooms
+SELECT * FROM Rooms;
+-- look at sessions
 SELECT * FROM Sessions;
--- no lesson on that day, all rooms free
+-- no lesson on 2021-04-14, all rooms free
 SELECT * FROM find_rooms('2021-04-14', 9, 2);
 -- several lessons on that day
-SELECT * FROM find_rooms('2021-04-09', 14, 3);
 SELECT * FROM Sessions WHERE DATE = '2021-04-09';
+SELECT * FROM find_rooms('2021-04-09', 14, 1);
+SELECT * FROM find_rooms('2021-04-09', 14, 2);
+-- time not valid
+SELECT * FROM find_rooms('2021-04-09', 18, 1);
+SELECT * FROM find_rooms('2021-04-09', 11, 2);
 -- date not valid
 SELECT * FROM find_rooms('2021-04-10', 14, 3);
--- time not valid
-SELECT * FROM find_rooms('2021-04-9', 17, 2);
-
+-- negative start time can handle
+-- duration > 0 cannot handle 555
 
 
 -- test 20
