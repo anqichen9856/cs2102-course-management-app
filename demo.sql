@@ -12,21 +12,31 @@ $$;
 
 
 -- 3
+
+-- Valid test case:
+select * from customers
+CALL add_customer ('Chen Anqi', '3 Jurong East Street 32', '(+65) 90174780', 'anqichen@gmail.com', 'A0188533W1234', '2023-02-20', 886);
 select * from customers
 select * from credit_cards
 select * from owns
-CALL add_customer ('Chen Anqi', '3 Jurong East Street 32', '(+65) 90174780', 'anqichen@gmail.com', 'A0188533W1234', '2023-02-20', 886);
--- NULL attributes
+
+-- NULL address is allowed
+CALL add_customer ('Joshua Ong', NULL, '(+65) 71156789', 'joshua@gmail.com', 'A0188533S1236', '2026-07-20', 888);
+select * from customers
+select * from credit_cards
+select * from owns
+
+-- Invalid test cases:
+-- NULL name is not allowed
 CALL add_customer (NULL, '3 Jurong East Street 32', '(+65) 90174780', 'anqichen@gmail.com', 'A0188533W1234', '2023-02-20', 886);
--- NULL address allowed
-CALL add_customer ('Joshua Ong', NULL, '(+65) 71156789', 'joshua@gmail.com', 'A0188533W1236', '2026-07-20', 888);
--- Same credit card
--- TPC for Credit cards：every credit card must be owned by at least one customer
--- credit_card_owns_total_part_con_trigger
-CALL add_customer ('Joshua Ong', NULL, '(+65) 71156789', 'joshuaong@gmail.com', 'A0188533W1234', '2026-07-20', 888);
--- TPC for Customers：every customer owns >= 1 credit card
--- customer_owns_total_part_con_trigger
-CALL add_customer ('Joel Siow', NULL, '(+65) 98256170', 'joelsiow@gmail.com', 'A0123456789012', '2026-07-20', 888);
+
+-- Same customer, different credit card is not allowed
+-- should use update_credit_card instead
+CALL add_customer ('Chen Anqi', '3 Jurong East Street 32', '(+65) 90174780', 'anqichen@gmail.com', 'A0188533K1235', '2026-09-23', 777);
+
+-- No card information provided
+CALL add_customer ('Chen Su', '3 Jurong East Street 32', '(+65) 81231456', 'chensuuu@gmail.com', NULL, NULL, NULL);
+
 
 -- 4
 select * from owns where cust_id=11;
