@@ -16,6 +16,17 @@ select * from customers
 select * from credit_cards
 select * from owns
 CALL add_customer ('Chen Anqi', '3 Jurong East Street 32', '(+65) 90174780', 'anqichen@gmail.com', 'A0188533W1234', '2023-02-20', 886);
+-- NULL attributes
+CALL add_customer (NULL, '3 Jurong East Street 32', '(+65) 90174780', 'anqichen@gmail.com', 'A0188533W1234', '2023-02-20', 886);
+-- NULL address allowed
+CALL add_customer ('Joshua Ong', NULL, '(+65) 71156789', 'joshua@gmail.com', 'A0188533W1236', '2026-07-20', 888);
+-- Same credit card
+-- TPC for Credit cards：every credit card must be owned by at least one customer
+-- credit_card_owns_total_part_con_trigger
+CALL add_customer ('Joshua Ong', NULL, '(+65) 71156789', 'joshuaong@gmail.com', 'A0188533W1234', '2026-07-20', 888);
+-- TPC for Customers：every customer owns >= 1 credit card
+-- customer_owns_total_part_con_trigger
+CALL add_customer ('Joel Siow', NULL, '(+65) 98256170', 'joelsiow@gmail.com', 'A0123456789012', '2026-07-20', 888);
 
 -- 4
 select * from owns where cust_id=11
