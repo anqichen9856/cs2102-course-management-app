@@ -21,6 +21,10 @@ CALL add_customer ('Chen Anqi', '3 Jurong East Street 32', '(+65) 90174780', 'an
 select * from owns where cust_id=11
 select * from credit_cards
 CALL update_credit_card (11, 'A0188533119W0117', '2026-09-27', 901);
+-- duplicate card
+CALL update_credit_card (12, 'A0188533119W0117', '2021-09-27', 901);
+-- expired date
+CALL update_credit_card (10, 'A0188533119W0110', '2020-09-27', 901);
 
 
 -- 8
