@@ -336,7 +336,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 8 DONE
--- checked: the room cannot be occupied by another session at the same day and has overlap timing with the input session
+-- checked: the room cannot be occupied by another session om the same day and has overlap timing with the input session
 CREATE OR REPLACE FUNCTION find_rooms(session_date DATE, start_hour NUMERIC, duration NUMERIC)
 RETURNS TABLE (rid INT) AS $$
 DECLARE

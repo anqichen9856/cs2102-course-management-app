@@ -29,25 +29,29 @@ CALL update_credit_card (12, 'A0188533119W0117', '2021-09-27', 901);
 -- expired date
 CALL update_credit_card (10, 'A0188533119W0110', '2020-09-27', 901);
 
-
 -- 8
--- first look at all rooms. in total 22 rooms
-SELECT * FROM Rooms;
--- look at sessions
-SELECT * FROM Sessions;
--- no lesson on 2021-04-14, all rooms free
-SELECT * FROM find_rooms('2021-04-14', 9, 2);
--- several lessons on that day
-SELECT * FROM Sessions WHERE DATE = '2021-04-09';
-SELECT * FROM find_rooms('2021-04-09', 14, 1);
-SELECT * FROM find_rooms('2021-04-09', 14, 2);
--- time not valid
-SELECT * FROM find_rooms('2021-04-09', 18, 1);
-SELECT * FROM find_rooms('2021-04-09', 11, 2);
--- date not valid
-SELECT * FROM find_rooms('2021-04-10', 14, 3);
--- negative start time can handle
--- duration > 0 cannot handle 555
+-- -- first look at all rooms. in total 22 rooms
+-- SELECT * FROM Rooms;
+-- -- look at sessions
+-- SELECT * FROM Sessions;
+
+
+-- case1: no sessions are conducted on 2021-04-14, all rooms free
+-- SELECT * FROM Sessions WHERE date = '2021-04-14';
+-- SELECT * FROM find_rooms('2021-04-14', 9, 2);
+
+
+-- case2: several sessions on that day
+-- SELECT * FROM Sessions WHERE DATE = '2021-04-09';
+-- SELECT * FROM find_rooms('2021-04-09', 14, 1);
+-- SELECT * FROM find_rooms('2021-04-09', 14, 2);
+
+
+-- input validity check 1: time not valid
+-- SELECT * FROM find_rooms('2021-04-09', 18, 1);
+-- SELECT * FROM find_rooms('2021-04-09', 11, 4);
+-- input validity check 2: date not valid
+-- SELECT * FROM find_rooms('2021-04-10', 14, 3);
 
 
 -- test 20
