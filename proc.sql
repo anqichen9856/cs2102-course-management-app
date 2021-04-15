@@ -147,7 +147,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 --4
-CREATE OR REPLACE PROCEDURE update_credit_card (cust_id INT, card_number TEXT, expiry_date DATE, cvv INTEGER)
+CREATE OR REPLACE PROCEDURE update_credit_card (cust_id INT, card_number TEXT, 
+expiry_date DATE, cvv INTEGER)
 AS $$
 BEGIN
     IF cust_id NOT IN (SELECT C.cust_id FROM Customers C) THEN
